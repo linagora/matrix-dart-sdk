@@ -18,9 +18,12 @@
 
 import 'dart:async';
 import 'dart:convert';
+import 'dart:math';
 import 'dart:typed_data';
 
+import 'package:file/memory.dart';
 import 'package:olm/olm.dart' as olm;
+import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:test/test.dart';
 
 import 'package:matrix/matrix.dart';
@@ -32,6 +35,26 @@ void main() {
       getHiveCollectionsDatabase(null),
     );
   });
+  group('SQflite Database Test', () {
+    testDatabase(openInMemoryFfiSqfliteDatabase(null));
+  });
+}
+
+Future<SqfliteDatabase> openInMemoryFfiSqfliteDatabase(Client? _) async {
+  final fileSystem = MemoryFileSystem();
+  final path = '${fileSystem.path}/build/.test_store/${Random().nextDouble()}';
+  final database = await databaseFactoryFfi.openDatabase(
+    path,
+    options: OpenDatabaseOptions(
+      version: 1,
+      onCreate: DbTablesExtension.create,
+    ),
+  );
+  return SqfliteDatabase(
+    database,
+    fileStoragePath: null,
+    maxFileSize: 0,
+  );
 }
 
 Future<bool> olmEnabled() async {
@@ -107,7 +130,7 @@ void testDatabase(
     final rooms = await database.getRoomList(client);
     expect(rooms.single.id, '!testroom');
   });
-  test('getRoomList', () async {
+  test('getSingleRoom', () async {
     final room =
         await database.getSingleRoom(Client('testclient'), '!testroom');
     expect(room?.id, '!testroom');
