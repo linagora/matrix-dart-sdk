@@ -29,17 +29,21 @@ import 'package:mime/mime.dart';
 import 'package:matrix/matrix.dart';
 
 class MatrixFile {
-  final Uint8List bytes;
+  final Uint8List? bytes;
   final String name;
   final String mimeType;
+  final String? filePath;
 
   /// Encrypts this file and returns the
   /// encryption information as an [EncryptedFile].
-  Future<EncryptedFile> encrypt() async {
-    return await encryptFile(bytes);
+  Future<EncryptedFile?> encrypt() async {
+    if (bytes != null) {
+      return await encryptFile(bytes!);
+    }
+    return null;
   }
 
-  MatrixFile({required this.bytes, required String name, String? mimeType})
+  MatrixFile({this.bytes, required String name, String? mimeType, this.filePath})
       : mimeType = mimeType != null && mimeType.isNotEmpty
             ? mimeType
             : lookupMimeType(name, headerBytes: bytes) ??
@@ -70,7 +74,7 @@ class MatrixFile {
     return MatrixFile(bytes: bytes, name: name, mimeType: mimeType);
   }
 
-  int get size => bytes.length;
+  int get size => bytes?.length ?? 0;
 
   String get msgType {
     return msgTypeFromMime(mimeType);
@@ -187,40 +191,43 @@ class MatrixImageFile extends MatrixFile {
     )? customImageResizer,
     NativeImplementations nativeImplementations = NativeImplementations.dummy,
   }) async {
-    final arguments = MatrixImageFileResizeArguments(
-      bytes: bytes,
-      maxDimension: dimension,
-      fileName: name,
-      calcBlurhash: true,
-    );
-    final resizedData = customImageResizer != null
+    if (bytes != null) {
+      final arguments = MatrixImageFileResizeArguments(
+        bytes: bytes!,
+        maxDimension: dimension,
+        fileName: name,
+        calcBlurhash: true,
+      );
+
+      final resizedData = customImageResizer != null
         ? await customImageResizer(arguments)
         : await nativeImplementations.shrinkImage(arguments);
 
-    if (resizedData == null) {
-      return null;
+      if (resizedData == null) {
+        return null;
+      }
+
+      // we should take the opportunity to update the image dimension
+      setImageSizeIfNull(
+        width: resizedData.originalWidth,
+        height: resizedData.originalHeight,
+      );
+
+      // the thumbnail should rather return null than the enshrined image
+      if (resizedData.width > dimension || resizedData.height > dimension) {
+        return null;
+      }
+
+      final thumbnailFile = MatrixImageFile(
+        bytes: resizedData.bytes,
+        name: name,
+        mimeType: mimeType,
+        width: resizedData.width,
+        height: resizedData.height,
+        blurhash: resizedData.blurhash,
+      );
+      return thumbnailFile;
     }
-
-    // we should take the opportunity to update the image dimension
-    setImageSizeIfNull(
-      width: resizedData.originalWidth,
-      height: resizedData.originalHeight,
-    );
-
-    // the thumbnail should rather return null than the enshrined image
-    if (resizedData.width > dimension || resizedData.height > dimension) {
-      return null;
-    }
-
-    final thumbnailFile = MatrixImageFile(
-      bytes: resizedData.bytes,
-      name: name,
-      mimeType: mimeType,
-      width: resizedData.width,
-      height: resizedData.height,
-      blurhash: resizedData.blurhash,
-    );
-    return thumbnailFile;
   }
 
   /// you would likely want to use [NativeImplementations] and
