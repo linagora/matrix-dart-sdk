@@ -23,7 +23,6 @@ import 'dart:math';
 import 'package:async/async.dart';
 import 'package:collection/collection.dart';
 import 'package:html_unescape/html_unescape.dart';
-
 import 'package:matrix/matrix.dart';
 import 'package:matrix/src/models/timeline_chunk.dart';
 import 'package:matrix/src/utils/cached_stream_controller.dart';
@@ -889,7 +888,7 @@ class Room {
     );
     await _handleFakeSync(syncUpdate);
 
-    MatrixFile uploadFile = file; // ignore: omit_local_variable_types
+    MatrixFile? uploadFile = file; // ignore: omit_local_variable_types
     // computing the thumbnail in case we can
     if (file is MatrixImageFile &&
         (thumbnail == null || shrinkImageMaxDimension != null)) {
@@ -920,8 +919,13 @@ class Room {
     try {
       final mediaConfig = await client.getConfig();
       final maxMediaSize = mediaConfig.mUploadSize;
-      if (maxMediaSize != null && maxMediaSize < file.bytes.lengthInBytes) {
-        throw FileTooBigMatrixException(file.bytes.lengthInBytes, maxMediaSize);
+      if (maxMediaSize != null &&
+          file.bytes?.lengthInBytes != null &&
+          maxMediaSize < file.bytes!.lengthInBytes) {
+        throw FileTooBigMatrixException(
+          file.bytes!.lengthInBytes,
+          maxMediaSize,
+        );
       }
     } catch (e) {
       Logs().d('Config error while sending file', e);
@@ -940,11 +944,11 @@ class Room {
           .unsigned![fileSendingStatusKey] = FileSendingStatus.encrypting.name;
       await _handleFakeSync(syncUpdate);
       encryptedFile = await file.encrypt();
-      uploadFile = encryptedFile.toMatrixFile();
+      uploadFile = encryptedFile?.toMatrixFile();
 
       if (thumbnail != null) {
         encryptedThumbnail = await thumbnail.encrypt();
-        uploadThumbnail = encryptedThumbnail.toMatrixFile();
+        uploadThumbnail = encryptedThumbnail?.toMatrixFile();
       }
     }
     Uri? uploadResp, thumbnailUploadResp;
@@ -953,17 +957,18 @@ class Room {
 
     syncUpdate.rooms!.join!.values.first.timeline!.events!.first
         .unsigned![fileSendingStatusKey] = FileSendingStatus.uploading.name;
+    if (uploadFile?.bytes == null) return null;
     while (uploadResp == null ||
         (uploadThumbnail != null && thumbnailUploadResp == null)) {
       try {
         uploadResp = await client.uploadContent(
-          uploadFile.bytes,
+          uploadFile!.bytes!,
           filename: uploadFile.name,
           contentType: uploadFile.mimeType,
         );
-        thumbnailUploadResp = uploadThumbnail != null
+        thumbnailUploadResp = uploadThumbnail?.bytes != null
             ? await client.uploadContent(
-                uploadThumbnail.bytes,
+                uploadThumbnail!.bytes!,
                 filename: uploadThumbnail.name,
                 contentType: uploadThumbnail.mimeType,
               )
@@ -2113,10 +2118,10 @@ class Room {
     MatrixFile? file, {
     void Function(int)? onUploadProgress,
   }) async {
-    final uploadResp = file == null
+    final uploadResp = file == null && file!.bytes != null
         ? null
         : await client.uploadContent(
-            file.bytes,
+            file.bytes!,
             filename: file.name,
           );
     return await client.setRoomStateWithKey(

@@ -19,9 +19,9 @@
 import 'dart:typed_data';
 
 import 'package:http/http.dart' as http;
+import 'package:matrix/matrix.dart';
 import 'package:test/test.dart';
 
-import 'package:matrix/matrix.dart';
 import 'fake_client.dart';
 
 void main() {
@@ -39,7 +39,7 @@ void main() {
       );
 
       final encryptedFile = await file.encrypt();
-      expect(encryptedFile.data.isNotEmpty, true);
+      expect(encryptedFile?.data.isNotEmpty, true);
     });
 
     test('Shrink', () async {
@@ -54,7 +54,7 @@ void main() {
           name: 'file.jpg',
           bytes: resp.bodyBytes,
         );
-        expect(file.bytes.isNotEmpty, true);
+        expect(file.bytes?.isNotEmpty, true);
         expect(file.height, null);
         expect(file.width, null);
 
