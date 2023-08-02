@@ -43,25 +43,23 @@ final libcrypto = () {
 
 final PKCS5_PBKDF2_HMAC = libcrypto.lookupFunction<
     IntPtr Function(
-      Pointer<Uint8> pass,
-      IntPtr passlen,
-      Pointer<Uint8> salt,
-      IntPtr saltlen,
-      IntPtr iter,
-      Pointer<NativeType> digest,
-      IntPtr keylen,
-      Pointer<Uint8> out,
-    ),
+        Pointer<Uint8> pass,
+        IntPtr passlen,
+        Pointer<Uint8> salt,
+        IntPtr saltlen,
+        IntPtr iter,
+        Pointer<NativeType> digest,
+        IntPtr keylen,
+        Pointer<Uint8> out),
     int Function(
-      Pointer<Uint8> pass,
-      int passlen,
-      Pointer<Uint8> salt,
-      int saltlen,
-      int iter,
-      Pointer<NativeType> digest,
-      int keylen,
-      Pointer<Uint8> out,
-    )>('PKCS5_PBKDF2_HMAC');
+        Pointer<Uint8> pass,
+        int passlen,
+        Pointer<Uint8> salt,
+        int saltlen,
+        int iter,
+        Pointer<NativeType> digest,
+        int keylen,
+        Pointer<Uint8> out)>('PKCS5_PBKDF2_HMAC');
 
 final EVP_sha1 = libcrypto.lookupFunction<Pointer<NativeType> Function(),
     Pointer<NativeType> Function()>('EVP_sha1');
@@ -149,6 +147,50 @@ final EVP_Digest = libcrypto.lookupFunction<
       Pointer<NativeType> alg,
       Pointer<NativeType> engine,
     )>('EVP_Digest');
+
+final EVP_MD_CTX_new = libcrypto.lookupFunction<
+    Pointer<NativeType> Function(),
+    Pointer<NativeType> Function()>('EVP_MD_CTX_new');
+
+final EVP_get_digestbyname = libcrypto.lookupFunction<
+    Pointer<NativeType> Function(Pointer<Utf8> name),
+    Pointer<NativeType> Function(Pointer<Utf8> name)
+  >('EVP_get_digestbyname');
+
+final EVP_DigestInit_ex = libcrypto.lookupFunction<
+  IntPtr Function(
+    Pointer<NativeType> ctx,
+    Pointer<NativeType> type,
+    Pointer<NativeType> engine),
+  int Function(
+    Pointer<NativeType> ctx,
+    Pointer<NativeType> type,
+    Pointer<NativeType> engine)>('EVP_DigestInit_ex');
+
+final EVP_DigestUpdate = libcrypto.lookupFunction<
+  IntPtr Function(
+    Pointer<NativeType> ctx,
+    Pointer<NativeType> d,
+    IntPtr cnt),
+  int Function(
+    Pointer<NativeType> ctx,
+    Pointer<NativeType> d,
+    int cnt)>('EVP_DigestUpdate');
+
+final EVP_DigestFinal_ex = libcrypto.lookupFunction<
+  IntPtr Function(
+    Pointer<NativeType> ctx,
+    Pointer<Uint8> md,
+    Pointer<Uint8> s
+  ),
+  int Function(
+    Pointer<NativeType> ctx,
+    Pointer<Uint8> md,
+    Pointer<Uint8> s)>('EVP_DigestFinal_ex');
+
+final EVP_MD_CTX_free = libcrypto.lookupFunction<
+  Pointer<NativeType> Function(Pointer<NativeType> ctx),
+  Pointer<NativeType> Function(Pointer<NativeType> ctx)>('EVP_MD_CTX_free');
 
 final EVP_MD_size = () {
   // EVP_MD_size was renamed to EVP_MD_get_size in Openssl3.0.
