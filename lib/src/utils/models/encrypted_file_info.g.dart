@@ -18,7 +18,7 @@ EncryptedFileInfo _$EncryptedFileInfoFromJson(Map<String, dynamic> json) =>
 Map<String, dynamic> _$EncryptedFileInfoToJson(EncryptedFileInfo instance) =>
     <String, dynamic>{
       'url': instance.url,
-      'key': instance.key,
+      'key': instance.key.toJson(),
       'v': instance.version,
       'iv': instance.initialVector,
       'hashes': instance.hashes,
