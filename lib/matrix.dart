@@ -63,7 +63,6 @@ export 'src/utils/matrix_file.dart';
 export 'src/utils/matrix_id_string_extension.dart';
 export 'src/utils/matrix_localizations.dart';
 export 'src/utils/native_implementations.dart';
-export 'src/utils/room_enums.dart';
 export 'src/utils/room_member_change_type.dart';
 export 'src/utils/push_notification.dart';
 export 'src/utils/pushrule_evaluator.dart';
@@ -73,6 +72,10 @@ export 'src/utils/to_device_event.dart';
 export 'src/utils/uia_request.dart';
 export 'src/utils/uri_extension.dart';
 export 'src/models/login_type.dart';
+export 'src/utils/encrypted_service.dart';
+export 'src/utils/models/encrypted_file_info.dart';
+export 'src/utils/models/encrypted_file_key.dart';
+export 'src/utils/models/file_info.dart';
 
 export 'msc_extensions/extension_recent_emoji/recent_emoji.dart';
 export 'msc_extensions/msc_3935_cute_events/msc_3935_cute_events.dart';
