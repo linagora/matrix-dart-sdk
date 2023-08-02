@@ -14,11 +14,13 @@ dependencies:
   blurhash_dart: ^1.1.0
   canonical_json: ^1.1.0
   collection: ^1.15.0
+  equatable: ^2.0.5
   html: ^0.15.0
   html_unescape: ^2.0.0
   http: ">=0.13.0 <2.0.0"
   image: ^4.0.15
   js_interop: ^0.0.1
+  json_annotation: ^4.7.0
   markdown: ^7.1.1
   mime: ">=1.0.0 <3.0.0"
   path: ^1.9.1
@@ -37,6 +39,7 @@ dev_dependencies:
   coverage: ">=0.15.0 <2.0.0"
   file: ">=6.1.1 <8.0.0"
   import_sorter: ^4.6.0
+  json_serializable: ^6.5.4
   lints: ^5.0.0
   sqflite_common_ffi: ^2.3.4+4 # sqflite_common_ffi aggressively requires newer dart versions
   test: ^1.25.13
