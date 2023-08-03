@@ -877,16 +877,7 @@ class Room {
           txid: messageID,
         );
       } catch (e, s) {
-        if (e is MatrixException &&
-            e.retryAfterMs != null &&
-            !DateTime.now()
-                .add(Duration(milliseconds: e.retryAfterMs!))
-                .isAfter(timeoutDate)) {
-          Logs().w(
-              'Ratelimited while sending message, waiting for ${e.retryAfterMs}ms');
-          await Future.delayed(Duration(milliseconds: e.retryAfterMs!));
-        } else if (e is MatrixException ||
-            DateTime.now().isAfter(timeoutDate)) {
+        if ((e is MatrixException && e.error != MatrixError.M_LIMIT_EXCEEDED) || DateTime.now().isAfter(timeoutDate)) {
           Logs().w('Problem while sending message', e, s);
           syncUpdate.rooms!.join!.values.first.timeline!.events!.first
               .unsigned![messageSendingStatusKey] = EventStatus.error.intValue;
@@ -899,6 +890,12 @@ class Room {
               .w('Problem while sending message: $e Try again in 1 seconds...');
           await Future.delayed(Duration(seconds: 1));
         }
+        final delay = e is MatrixException && e.raw['retry_after_ms'] is int
+            ? e.raw['retry_after_ms'] as int
+            : 1000;
+        Logs().w(
+            'Problem while sending message: $e Try again in $delay milliseconds...');
+        await Future.delayed(Duration(milliseconds: delay));
       }
     }
     syncUpdate.rooms!.join!.values.first.timeline!.events!.first
