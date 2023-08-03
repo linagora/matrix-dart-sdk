@@ -27,7 +27,6 @@ import 'package:matrix/matrix.dart';
 import 'package:matrix/src/models/timeline_chunk.dart';
 import 'package:matrix/src/utils/cached_stream_controller.dart';
 import 'package:matrix/src/utils/crypto/crypto.dart';
-import 'package:matrix/src/utils/file_send_request_credentials.dart';
 import 'package:matrix/src/utils/markdown.dart';
 import 'package:matrix/src/utils/marked_unread.dart';
 import 'package:matrix/src/utils/space_child.dart';
@@ -876,7 +875,7 @@ class Room {
           txid: messageID,
         );
       } catch (e, s) {
-        if (e is MatrixException || DateTime.now().isAfter(timeoutDate)) {
+        if ((e is MatrixException && e.error != MatrixError.M_LIMIT_EXCEEDED) || DateTime.now().isAfter(timeoutDate)) {
           Logs().w('Problem while sending message', e, s);
           syncUpdate.rooms!.join!.values.first.timeline!.events!.first
               .unsigned![messageSendingStatusKey] = EventStatus.error.intValue;
