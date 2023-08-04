@@ -884,8 +884,12 @@ class Room {
           _sendingQueue.remove(completer);
           return null;
         }
-        Logs().w('Problem while sending message: $e Try again in 1 seconds...');
-        await Future.delayed(Duration(seconds: 1));
+        final delay = e is MatrixException && e.raw['retry_after_ms'] is int
+            ? e.raw['retry_after_ms'] as int
+            : 1000;
+        Logs().w(
+            'Problem while sending message: $e Try again in $delay milliseconds...');
+        await Future.delayed(Duration(milliseconds: delay));
       }
     }
     syncUpdate.rooms!.join!.values.first.timeline!.events!.first
