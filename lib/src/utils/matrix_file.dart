@@ -101,20 +101,23 @@ class MatrixFile {
 
 class MatrixImageFile extends MatrixFile {
   MatrixImageFile({
-    required super.bytes,
-    required super.name,
-    super.mimeType,
+    Uint8List? bytes,
+    required String name,
+    super.filePath,
+    String? mimeType,
     int? width,
     int? height,
     this.blurhash,
   })  : _width = width,
-        _height = height;
+        _height = height,
+        super(bytes: bytes, name: name, mimeType: mimeType);
 
   /// Creates a new image file and calculates the width, height and blurhash.
   static Future<MatrixImageFile> create({
     required Uint8List bytes,
     required String name,
     String? mimeType,
+    String? filePath,
     NativeImplementations nativeImplementations = NativeImplementations.dummy,
   }) async {
     final metaData = await nativeImplementations.calcImageMetadata(bytes);
@@ -122,6 +125,7 @@ class MatrixImageFile extends MatrixFile {
     return MatrixImageFile(
       bytes: metaData?.bytes ?? bytes,
       name: name,
+      filePath: filePath,
       mimeType: mimeType,
       width: metaData?.width,
       height: metaData?.height,
@@ -360,13 +364,14 @@ class MatrixVideoFile extends MatrixFile {
   final int? duration;
 
   MatrixVideoFile({
-    required super.bytes,
-    required super.name,
-    super.mimeType,
+    Uint8List? bytes,
+    required String name,
+    String? mimeType,
+    super.filePath,
     this.width,
     this.height,
     this.duration,
-  });
+  }) : super(bytes: bytes, name: name, mimeType: mimeType);
 
   @override
   String get msgType => 'm.video';
@@ -384,11 +389,12 @@ class MatrixAudioFile extends MatrixFile {
   final int? duration;
 
   MatrixAudioFile({
-    required super.bytes,
-    required super.name,
-    super.mimeType,
+    required Uint8List bytes,
+    required String name,
+    String? mimeType,
+    super.filePath,
     this.duration,
-  });
+  }) : super(bytes: bytes, name: name, mimeType: mimeType);
 
   @override
   String get msgType => 'm.audio';
