@@ -56,6 +56,8 @@ export 'src/utils/matrix_localizations.dart';
 export 'src/utils/models/encrypted_file_info.dart';
 export 'src/utils/models/encrypted_file_key.dart';
 export 'src/utils/models/file_info.dart';
+export 'src/utils/models/image_file_info.dart';
+export 'src/utils/models/video_file_info.dart';
 export 'src/utils/native_implementations.dart';
 export 'src/utils/push_notification.dart';
 export 'src/utils/pushrule_evaluator.dart';
@@ -68,6 +70,7 @@ export 'src/utils/uri_extension.dart';
 export 'src/utils/web_worker/native_implementations_web_worker_stub.dart'
     if (dart.library.js_interop) 'src/utils/web_worker/native_implementations_web_worker.dart';
 export 'src/utils/web_worker/web_worker_stub.dart'
+    if (dart.library.html) 'src/utils/web_worker/web_worker.dart'
     if (dart.library.js_interop) 'src/utils/web_worker/web_worker.dart';
 export 'src/voip/backend/call_backend_model.dart';
 export 'src/voip/backend/livekit_backend.dart';
