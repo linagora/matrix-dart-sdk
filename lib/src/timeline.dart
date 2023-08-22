@@ -511,8 +511,25 @@ class Timeline {
         if (eventUpdate.type == EventUpdateType.history) {
           events.add(newEvent);
         } else {
-          index = events.firstIndexWhereNotError;
-          events.insert(index, newEvent);
+          final newEvent = Event.fromJson(
+            eventUpdate.content,
+            room,
+          );
+
+          if (eventUpdate.type == EventUpdateType.history &&
+              events.indexWhere(
+                      (e) => e.eventId == eventUpdate.content['event_id']) !=
+                  -1) return;
+          var index = events.length;
+          if (eventUpdate.type == EventUpdateType.history) {
+            events.add(newEvent);
+          } else {
+            index = 0;
+            events.insert(index, newEvent);
+          }
+          onInsert?.call(index);
+
+          addAggregatedEvent(newEvent);
         }
         onInsert?.call(index);
 
