@@ -20,7 +20,6 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:collection/collection.dart';
-
 import 'package:matrix/matrix.dart';
 import 'package:matrix/src/models/timeline_chunk.dart';
 
@@ -573,7 +572,7 @@ class Timeline {
         if (type == EventUpdateType.history) {
           events.add(event);
         } else {
-          index = events.firstIndexWhereNotError;
+          index = 0;
           events.insert(index, event);
         }
         onInsert?.call(index);
