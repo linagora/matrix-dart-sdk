@@ -573,7 +573,7 @@ class Timeline {
         if (type == EventUpdateType.history) {
           events.add(event);
         } else {
-          index = events.firstIndexWhereNotError;
+          index = 0;
           events.insert(index, event);
         }
         onInsert?.call(index);
