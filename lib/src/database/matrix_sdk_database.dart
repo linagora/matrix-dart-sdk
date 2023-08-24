@@ -20,22 +20,19 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:math';
 
-import 'package:sqflite_common/sqflite.dart';
-
 import 'package:matrix/encryption/utils/olm_session.dart';
 import 'package:matrix/encryption/utils/outbound_group_session.dart';
 import 'package:matrix/encryption/utils/ssss_cache.dart';
 import 'package:matrix/encryption/utils/stored_inbound_group_session.dart';
 import 'package:matrix/matrix.dart';
+import 'package:matrix/src/database/database_file_storage_stub.dart'
+    if (dart.library.io) 'package:matrix/src/database/database_file_storage_io.dart';
+import 'package:matrix/src/database/sqflite_box.dart'
+    if (dart.library.js_interop) 'package:matrix/src/database/indexeddb_box.dart';
 import 'package:matrix/src/utils/copy_map.dart';
 import 'package:matrix/src/utils/queued_to_device_event.dart';
 import 'package:matrix/src/utils/run_benchmarked.dart';
-
-import 'package:matrix/src/database/sqflite_box.dart'
-    if (dart.library.js_interop) 'package:matrix/src/database/indexeddb_box.dart';
-
-import 'package:matrix/src/database/database_file_storage_stub.dart'
-    if (dart.library.io) 'package:matrix/src/database/database_file_storage_io.dart';
+import 'package:sqflite_common/sqflite.dart';
 
 /// Database based on SQlite3 on native and IndexedDB on web. For native you
 /// have to pass a `Database` object, which can be created with the sqflite
@@ -518,18 +515,32 @@ class MatrixSdkDatabase extends DatabaseApi with DatabaseFileStorage {
               (await _timelineFragmentsBox.get(sendingTimelineKey) ?? []);
         }
 
-        // Combine those two lists while respecting the start and limit parameters.
+        final sendingEvents =
+            await _getEventsByIds(sendingEventIds as List<String>, room);
+        if (start >= timelineEventIds.length || onlySending) {
+          return sendingEvents;
+        }
+
         final end = min(
           timelineEventIds.length,
           start + (limit ?? timelineEventIds.length),
         );
-        final eventIds = [
-          ...sendingEventIds,
-          if (!onlySending && start < timelineEventIds.length)
-            ...timelineEventIds.getRange(start, end),
-        ];
+        final syncedEvents = await _getEventsByIds(
+          (timelineEventIds as List<String>).sublist(start, end),
+          room,
+        );
 
-        return await _getEventsByIds(eventIds.cast<String>(), room);
+        for (final sendingEvent in sendingEvents) {
+          final index = syncedEvents.indexWhere(
+            (event) =>
+                event.originServerTs.isBefore(sendingEvent.originServerTs),
+          );
+
+          if (index >= 0) {
+            syncedEvents.insert(index, sendingEvent);
+          }
+        }
+        return syncedEvents;
       });
 
   @override

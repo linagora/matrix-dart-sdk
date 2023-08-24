@@ -724,12 +724,3 @@ class Timeline {
     return;
   }
 }
-
-extension on List<Event> {
-  int get firstIndexWhereNotError {
-    if (isEmpty) return 0;
-    final index = indexWhere((event) => !event.status.isError);
-    if (index == -1) return length;
-    return index;
-  }
-}
