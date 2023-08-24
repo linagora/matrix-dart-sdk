@@ -23,13 +23,11 @@ import 'dart:typed_data';
 import 'package:collection/collection.dart';
 import 'package:html/parser.dart';
 import 'package:http/http.dart' as http;
-import 'package:mime/mime.dart';
-
 import 'package:matrix/matrix.dart';
-import 'package:matrix/src/utils/file_send_request_credentials.dart';
 import 'package:matrix/src/utils/html_to_text.dart';
 import 'package:matrix/src/utils/markdown.dart';
 import 'package:matrix/src/utils/multipart_request_progress.dart';
+import 'package:mime/mime.dart';
 
 abstract class RelationshipTypes {
   static const String reply = 'm.in_reply_to';
@@ -449,32 +447,35 @@ class Event extends MatrixEvent {
       MessageTypes.Audio,
       MessageTypes.File,
     }.contains(messageType)) {
-      final file = room.sendingFilePlaceholders[eventId];
-      if (file == null) {
-        await cancelSend();
-        throw Exception('Can not try to send again. File is no longer cached.');
-      }
-      final thumbnail = room.sendingFileThumbnails[eventId];
-      final credentials = FileSendRequestCredentials.fromJson(unsigned ?? {});
-      final inReplyTo = credentials.inReplyTo == null
-          ? null
-          : await room.getEventById(credentials.inReplyTo!);
-      return await room.sendFileEvent(
-        file,
-        txid: txid ?? transactionId,
-        thumbnail: thumbnail,
-        inReplyTo: inReplyTo,
-        editEventId: credentials.editEventId,
-        shrinkImageMaxDimension: credentials.shrinkImageMaxDimension,
-        extraContent: credentials.extraContent,
-      );
+      // final file = room.sendingFilePlaceholders[eventId];
+      // if (file == null) {
+      //   await cancelSend();
+      //   throw Exception('Can not try to send again. File is no longer cached.');
+      // }
+      // final thumbnail = room.sendingFileThumbnails[eventId];
+      // final credentials = FileSendRequestCredentials.fromJson(unsigned ?? {});
+      // final inReplyTo = credentials.inReplyTo == null
+      //     ? null
+      //     : await room.getEventById(credentials.inReplyTo!);
+      // return await room.sendFileEvent(
+      //   file,
+      //   txid: txid ?? transactionId,
+      //   thumbnail: thumbnail,
+      //   inReplyTo: inReplyTo,
+      //   editEventId: credentials.editEventId,
+      //   shrinkImageMaxDimension: credentials.shrinkImageMaxDimension,
+      //   extraContent: credentials.extraContent,
+      // );
+
+      // Resend file doesn't work yet
+      return null;
     }
 
     // we do not remove the event here. It will automatically be updated
     // in the `sendEvent` method to transition -1 -> 0 -> 1 -> 2
     return await room.sendEvent(
       content,
-      txid: txid ?? transactionId ?? eventId,
+      txid: txid ?? unsigned?.tryGet<String>('transaction_id') ?? eventId,
     );
   }
 
