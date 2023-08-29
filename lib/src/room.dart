@@ -877,7 +877,7 @@ class Room {
           txid: messageID,
         );
       } catch (e, s) {
-        if ((e is MatrixException && e.error != MatrixError.M_LIMIT_EXCEEDED) || DateTime.now().isAfter(timeoutDate)) {
+        if (e is MatrixException || DateTime.now().isAfter(timeoutDate)) {
           Logs().w('Problem while sending message', e, s);
           syncUpdate.rooms!.join!.values.first.timeline!.events!.first
               .unsigned![messageSendingStatusKey] = EventStatus.error.intValue;
