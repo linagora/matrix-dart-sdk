@@ -1573,6 +1573,20 @@ class Room {
       EventTypes.RoomAvatar,
       '',
       {
+        if (uploadResp != null) 'url': uploadResp.toString(),
+      },
+    );
+  }
+
+  Future<String> changeAvatar(MatrixFile? file) async {
+    final uploadResp = file == null && file!.bytes != null
+        ? null
+        : await client.uploadContent(file.bytes!, filename: file.name);
+    return await client.setRoomStateWithKey(
+      id,
+      EventTypes.RoomAvatar,
+      '',
+      {
         PushRuleKeyConst.roomState: PushRulePatternConst.roomCreated,
         if (uploadResp != null) 'url': uploadResp.toString(),
       },
