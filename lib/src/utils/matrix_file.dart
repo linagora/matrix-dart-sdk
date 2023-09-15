@@ -71,6 +71,7 @@ class MatrixFile {
         name: name,
         mimeType: mimeType,
         filePath: filePath,
+        bytes: bytes,
       );
     }
     if (msgType == MessageTypes.Video) {
