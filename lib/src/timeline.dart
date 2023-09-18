@@ -638,10 +638,16 @@ class Timeline {
     }
 
     // Search on the server
-    prevBatch ??= room.prev_batch;
+    var prevBatch = room.prev_batch;
+    var ignoreEventIds = <String>[];
     if (sinceEventId != null) {
-      prevBatch =
-          (await room.client.getEventContext(room.id, sinceEventId)).end;
+      final eventContext =
+          await room.client.getEventContext(room.id, sinceEventId);
+      final eventIdsAfter =
+          eventContext.eventsAfter?.map((event) => event.eventId).toList() ??
+              [];
+      ignoreEventIds = eventIdsAfter..add(sinceEventId);
+      prevBatch = eventContext.end;
     }
     final encryption = room.client.encryption;
     for (var i = 0; i < maxHistoryRequests; i++) {
@@ -657,6 +663,9 @@ class Timeline {
         );
         for (final matrixEvent in resp.chunk) {
           var event = Event.fromMatrixEvent(matrixEvent, room);
+          if (ignoreEventIds.contains(event.eventId)) {
+            continue;
+          }
           if (event.type == EventTypes.Encrypted && encryption != null) {
             event = await encryption.decryptRoomEvent(room.id, event);
             if (event.type == EventTypes.Encrypted &&
@@ -682,7 +691,7 @@ class Timeline {
         rethrow;
       }
     }
-    return;
+    yield found;
   }
 }
 
