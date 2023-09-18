@@ -1411,7 +1411,7 @@ class Room {
   /// Call the Matrix API to invite a user to this room.
   Future<void> invite(
     String userID, {
-    String? reason,
+    String reason = 'Welcome',
   }) =>
       client.inviteUser(
         id,
