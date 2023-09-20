@@ -304,6 +304,9 @@ class Client extends MatrixApi {
   String? get prevBatch => _prevBatch;
   String? _prevBatch;
 
+  /// A completer to know when the client initialization is completed.
+  Completer<void>? initCompleter;
+
   /// The device ID is an unique identifier for this device.
   String? get deviceID => _deviceID;
   String? _deviceID;
@@ -1550,6 +1553,7 @@ class Client extends MatrixApi {
     /// Will be called if the app performs a migration task from the [legacyDatabaseBuilder]
     void Function()? onMigration,
   }) async {
+    initCompleter = Completer<void>();
     if ((newToken != null ||
             newUserID != null ||
             newDeviceID != null ||
@@ -1732,6 +1736,7 @@ class Client extends MatrixApi {
       if (waitForFirstSync) {
         await firstSyncReceived;
       }
+      initCompleter?.complete();
       return;
     } on ClientInitPreconditionError {
       rethrow;
