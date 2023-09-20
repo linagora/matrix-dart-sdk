@@ -330,6 +330,9 @@ class Client extends MatrixApi {
   String? get prevBatch => _prevBatch;
   String? _prevBatch;
 
+  /// A completer to know when the client initialization is completed.
+  Completer<void>? initCompleter;
+
   /// The device ID is an unique identifier for this device.
   String? get deviceID => _deviceID;
   String? _deviceID;
@@ -1976,6 +1979,7 @@ class Client extends MatrixApi {
     /// To track what actually happens you can set a callback here.
     void Function(InitState)? onInitStateChanged,
   }) async {
+    initCompleter = Completer<void>();
     if ((newToken != null ||
             newUserID != null ||
             newDeviceID != null ||
@@ -2174,6 +2178,7 @@ class Client extends MatrixApi {
         await firstSyncReceived;
       }
       onInitStateChanged?.call(InitState.finished);
+      initCompleter?.complete();
       return;
     } on ClientInitPreconditionError {
       onInitStateChanged?.call(InitState.error);
@@ -2195,6 +2200,7 @@ class Client extends MatrixApi {
       throw clientInitException;
     } finally {
       _initLock = false;
+      initCompleter?.complete();
     }
   }
 
