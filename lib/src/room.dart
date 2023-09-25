@@ -772,7 +772,7 @@ class Room {
     String? threadRootEventId,
     String? threadLastEventId,
   }) async {
-    content[PushRuleKeyConst.ChatType] = isDirectChat 
+    content[PushRuleKeyConst.chatType] = isDirectChat 
       ? PushRulePatternConst.directChat 
       : PushRulePatternConst.groupChat;
     // Create new transaction id
