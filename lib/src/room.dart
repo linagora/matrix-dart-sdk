@@ -304,7 +304,7 @@ class Room {
                 .calcDisplayname(i18n: i18n));
       }
     }
-    return i18n.emptyChat;
+    return id;
   }
 
   /// The topic of the room if set by a participant.
