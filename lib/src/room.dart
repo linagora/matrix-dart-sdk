@@ -310,7 +310,7 @@ class Room {
         );
       }
     }
-    return i18n.emptyChat;
+    return id;
   }
 
   /// The topic of the room if set by a participant.
