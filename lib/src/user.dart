@@ -127,7 +127,7 @@ class User extends Event {
       }
       return words.join(' ').trim();
     }
-    return i18n.unknownUser;
+    return id;
   }
 
   /// Call the Matrix API to kick this user from this room.
