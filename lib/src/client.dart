@@ -33,7 +33,6 @@ import 'package:matrix/src/models/timeline_chunk.dart';
 import 'package:matrix/src/utils/cached_stream_controller.dart';
 import 'package:matrix/src/utils/client_init_exception.dart';
 import 'package:matrix/src/utils/multilock.dart';
-import 'package:matrix/src/utils/run_benchmarked.dart';
 import 'package:matrix/src/utils/run_in_root.dart';
 import 'package:matrix/src/utils/sync_update_item_count.dart';
 import 'package:matrix/src/utils/try_get_push_rule.dart';
@@ -135,6 +134,8 @@ class Client extends MatrixApi {
     }
     super.homeserver = homeserver;
   }
+
+  bool _supportDeleteCollections = false;
 
   Future<MatrixImageFileResizedResponse?> Function(
     MatrixImageFileResizeArguments,
@@ -1572,7 +1573,9 @@ class Client extends MatrixApi {
     await abortSync();
     await dispose(closeDatabase: false);
 
-    final export = await database.exportDump();
+    final export = await database.exportDump(
+      supportDeleteCollections: _supportDeleteCollections,
+    );
 
     await clear();
     return export;
@@ -1589,7 +1592,10 @@ class Client extends MatrixApi {
       // Client was probably not initialized yet.
     }
 
-    final success = await database.importDump(export);
+    final success = await database.importDump(
+      export,
+      supportDeleteCollections: _supportDeleteCollections,
+    );
 
     if (success) {
       try {
@@ -2233,7 +2239,9 @@ class Client extends MatrixApi {
     try {
       await abortSync();
       await database.clear();
-      await legacyDatabase?.clear();
+      await legacyDatabase?.clear(
+        supportDeleteCollections: _supportDeleteCollections,
+      );
       _backgroundSync = true;
     } catch (e, s) {
       Logs().e('Unable to clear database', e, s);
@@ -4037,7 +4045,9 @@ class Client extends MatrixApi {
       Logs().e('Unable to migrate inbound group sessions!', e, s);
     }
 
-    await legacyDatabase.clear();
+    await legacyDatabase.clear(
+      supportDeleteCollections: _supportDeleteCollections,
+    );
     await legacyDatabase.delete();
 
     _initLock = false;
@@ -4046,6 +4056,10 @@ class Client extends MatrixApi {
       waitUntilLoadCompletedLoaded: false,
       onInitStateChanged: onInitStateChanged,
     );
+  }
+
+  set isSupportDeleteCollections(bool supportDeleteCollections) {
+    _supportDeleteCollections = supportDeleteCollections;
   }
 }
 

@@ -31,7 +31,6 @@ import 'package:matrix/src/database/sqflite_box.dart'
     if (dart.library.js_interop) 'package:matrix/src/database/indexeddb_box.dart';
 import 'package:matrix/src/utils/copy_map.dart';
 import 'package:matrix/src/utils/queued_to_device_event.dart';
-import 'package:matrix/src/utils/run_benchmarked.dart';
 import 'package:sqflite_common/sqflite.dart';
 
 /// Database based on SQlite3 on native and IndexedDB on web. For native you
@@ -350,7 +349,9 @@ class MatrixSdkDatabase extends DatabaseApi with DatabaseFileStorage {
   }
 
   @override
-  Future<void> clear() async {
+  Future<void> clear({
+    bool supportDeleteCollections = false,
+  }) async {
     _clientBox.clearQuickAccessCache();
     _accountDataBox.clearQuickAccessCache();
     _roomsBox.clearQuickAccessCache();
@@ -373,8 +374,9 @@ class MatrixSdkDatabase extends DatabaseApi with DatabaseFileStorage {
     _seenDeviceIdsBox.clearQuickAccessCache();
     _seenDeviceKeysBox.clearQuickAccessCache();
     _userProfilesBox.clearQuickAccessCache();
-
-    await _collection.clear();
+    if (supportDeleteCollections) {
+      await _collection.clear();
+    }
   }
 
   @override
@@ -1601,7 +1603,7 @@ class MatrixSdkDatabase extends DatabaseApi with DatabaseFileStorage {
   }
 
   @override
-  Future<String> exportDump() async {
+  Future<String> exportDump({bool supportDeleteCollections = false}) async {
     final dataMap = {
       _clientBoxName: await _clientBox.getAllValues(),
       _accountDataBoxName: await _accountDataBox.getAllValues(),
@@ -1631,14 +1633,17 @@ class MatrixSdkDatabase extends DatabaseApi with DatabaseFileStorage {
       _seenDeviceKeysBoxName: await _seenDeviceKeysBox.getAllValues(),
     };
     final json = jsonEncode(dataMap);
-    await clear();
+    await clear(supportDeleteCollections: supportDeleteCollections);
     return json;
   }
 
   @override
-  Future<bool> importDump(String export) async {
+  Future<bool> importDump(
+    String export, {
+    bool supportDeleteCollections = false,
+  }) async {
     try {
-      await clear();
+      await clear(supportDeleteCollections: supportDeleteCollections);
       await open();
       final json = Map.from(jsonDecode(export)).cast<String, Map>();
       for (final key in json[_clientBoxName]!.keys) {
