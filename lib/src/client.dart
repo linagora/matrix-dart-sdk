@@ -118,6 +118,8 @@ class Client extends MatrixApi {
 
   final Duration sendTimelineEventTimeout;
 
+  bool _supportDeleteCollections = false;
+
   Future<MatrixImageFileResizedResponse?> Function(
       MatrixImageFileResizeArguments)? customImageResizer;
 
@@ -1186,7 +1188,7 @@ class Client extends MatrixApi {
       await abortSync();
       await dispose(closeDatabase: false);
 
-      final export = await database!.exportDump();
+      final export = await database!.exportDump(supportDeleteCollections: _supportDeleteCollections);
 
       await clear();
       return export;
@@ -1207,7 +1209,7 @@ class Client extends MatrixApi {
 
     _database ??= await databaseBuilder!.call(this);
 
-    final success = await database!.importDump(export);
+    final success = await database!.importDump(export, supportDeleteCollections: _supportDeleteCollections);
 
     if (success) {
       // closing including DB
@@ -1769,7 +1771,7 @@ class Client extends MatrixApi {
     Logs().outputEvents.clear();
     try {
       await abortSync();
-      await database?.clear();
+      await database?.clear(supportDeleteCollections: _supportDeleteCollections);
       _backgroundSync = true;
     } catch (e, s) {
       Logs().e('Unable to clear database', e, s);
@@ -3289,6 +3291,28 @@ class Client extends MatrixApi {
         Logs().d('Migrate user device keys info...');
         await database.storeUserDeviceKeysInfo(userId, deviceKeysList.outdated);
       }
+      Logs().d('Migrate inbound group sessions...');
+      try {
+        final sessions = await legacyDatabase.getAllInboundGroupSessions();
+        for (var i = 0; i < sessions.length; i++) {
+          Logs().d('$i / ${sessions.length}');
+          final session = sessions[i];
+          await database.storeInboundGroupSession(
+            session.roomId,
+            session.sessionId,
+            session.pickle,
+            session.content,
+            session.indexes,
+            session.allowedAtIndex,
+            session.senderKey,
+            session.senderClaimedKeys,
+          );
+        }
+      } catch (e, s) {
+        Logs().e('Unable to migrate inbound group sessions!', e, s);
+      }
+
+      await legacyDatabase.clear(supportDeleteCollections: _supportDeleteCollections);
     }
     Logs().d('Migrate inbound group sessions...');
     try {
@@ -3318,6 +3342,10 @@ class Client extends MatrixApi {
       waitForFirstSync: false,
       waitUntilLoadCompletedLoaded: false,
     );
+  }
+
+  set isSupportDeleteCollections(bool supportDeleteCollections) {
+    _supportDeleteCollections = supportDeleteCollections;
   }
 }
 

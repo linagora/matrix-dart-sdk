@@ -83,7 +83,9 @@ abstract class DatabaseApi {
 
   Future<void> clearCache();
 
-  Future<void> clear();
+  Future<void> clear({
+    bool supportDeleteCollections = false,
+  });
 
   Future<User?> getUser(String userId, Room room);
 
@@ -319,9 +321,7 @@ abstract class DatabaseApi {
 
   Future<void> transaction(Future<void> Function() action);
 
-  Future<String> exportDump();
-
-  Future<bool> importDump(String export);
+  Future<String> exportDump({bool supportDeleteCollections = false});
 
   Future<void> storePresence(String userId, CachedPresence presence);
 
@@ -330,4 +330,9 @@ abstract class DatabaseApi {
   /// Deletes the whole database. The database needs to be created again after
   /// this. Used for migration only.
   Future<void> delete();
+  
+  Future<bool> importDump(
+    String export, {
+    bool supportDeleteCollections = false,
+  });
 }

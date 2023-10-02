@@ -245,7 +245,10 @@ class HiveCollectionsDatabase extends DatabaseApi {
   }
 
   @override
-  Future<void> clear() => transaction(() async {
+  Future<void> clear({
+    bool supportDeleteCollections = false,
+  }) =>
+      transaction(() async {
         await _clientBox.clear();
         await _accountDataBox.clear();
         await _roomsBox.clear();
@@ -265,7 +268,9 @@ class HiveCollectionsDatabase extends DatabaseApi {
         await _eventsBox.clear();
         await _seenDeviceIdsBox.clear();
         await _seenDeviceKeysBox.clear();
-        await _collection.deleteFromDisk();
+        if (supportDeleteCollections) {
+          await _collection.deleteFromDisk();
+        }
       });
 
   @override
@@ -1495,7 +1500,7 @@ class HiveCollectionsDatabase extends DatabaseApi {
   }
 
   @override
-  Future<String> exportDump() async {
+  Future<String> exportDump({bool supportDeleteCollections = false}) async {
     final dataMap = {
       _clientBoxName: await _clientBox.getAllValues(),
       _accountDataBoxName: await _accountDataBox.getAllValues(),
@@ -1522,14 +1527,17 @@ class HiveCollectionsDatabase extends DatabaseApi {
       _seenDeviceKeysBoxName: await _seenDeviceKeysBox.getAllValues(),
     };
     final json = jsonEncode(dataMap);
-    await clear();
+    await clear(supportDeleteCollections: supportDeleteCollections);
     return json;
   }
 
   @override
-  Future<bool> importDump(String export) async {
+  Future<bool> importDump(
+    String export, {
+    bool supportDeleteCollections = false,
+  }) async {
     try {
-      await clear();
+      await clear(supportDeleteCollections: supportDeleteCollections);
       await open();
       final json = Map.from(jsonDecode(export)).cast<String, Map>();
       for (final key in json[_clientBoxName]!.keys) {
