@@ -80,11 +80,11 @@ abstract class MatrixLocalizations {
 
   String groupWith(String displayname);
 
-  String removedBy(Event redactedEvent);
+  String removedBy(String displayName);
 
   String sentASticker(String senderName);
 
-  String redactedAnEvent(Event redactedEvent);
+  String redactedAnEvent(String displayName);
 
   String changedTheRoomAliases(String senderName);
 

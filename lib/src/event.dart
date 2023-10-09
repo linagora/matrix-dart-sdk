@@ -909,9 +909,6 @@ class Event extends MatrixEvent {
     bool removeMarkdown = false,
   }) {
     if (redacted) {
-      if (status.intValue < EventStatus.synced.intValue) {
-        return i18n.cancelledSend;
-      }
       return i18n.removedBy(this);
     }
 
