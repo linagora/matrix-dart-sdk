@@ -17,7 +17,6 @@
  */
 
 import 'package:collection/collection.dart';
-
 import 'package:matrix/encryption.dart';
 import 'package:matrix/matrix.dart';
 
@@ -128,7 +127,8 @@ abstract class EventLocalizations {
     EventTypes.Sticker: (event, i18n, body) => i18n.sentASticker(
           event.senderFromMemoryOrFallback.calcDisplayname(i18n: i18n),
         ),
-    EventTypes.Redaction: (event, i18n, body) => i18n.redactedAnEvent(event),
+    EventTypes.Redaction: (event, i18n, body) => i18n
+        .redactedAnEvent(event.senderFromMemoryOrFallback.calcDisplayname()),
     EventTypes.RoomAliases: (event, i18n, body) => i18n.changedTheRoomAliases(
           event.senderFromMemoryOrFallback.calcDisplayname(i18n: i18n),
         ),

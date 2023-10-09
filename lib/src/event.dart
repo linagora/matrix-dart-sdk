@@ -920,7 +920,7 @@ class Event extends MatrixEvent {
       if (status.intValue < EventStatus.synced.intValue) {
         return i18n.cancelledSend;
       }
-      return i18n.removedBy(this);
+      return i18n.removedBy(senderFromMemoryOrFallback.calcDisplayname());
     }
 
     final body = calcUnlocalizedBody(
