@@ -18,6 +18,7 @@
 
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 import 'dart:math';
 
 import 'package:matrix/encryption/utils/olm_session.dart';
@@ -1261,6 +1262,9 @@ class MatrixSdkDatabase extends DatabaseApi with DatabaseFileStorage {
   }
 
   @override
+  Future<void> storeFileEntity(Uri mxcUri, File file, int time) async {}
+
+  @override
   Future<void> storeInboundGroupSession(
     String roomId,
     String sessionId,
@@ -1847,6 +1851,11 @@ class MatrixSdkDatabase extends DatabaseApi with DatabaseFileStorage {
         userId,
         profile.toJson(),
       );
+
+  @override
+  Future<File?> getFileEntity(Uri mxcUri) {
+    throw UnimplementedError();
+  }
 }
 
 class TupleKey {

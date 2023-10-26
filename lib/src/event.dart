@@ -741,6 +741,13 @@ class Event extends MatrixEvent {
     return uint8list != null;
   }
 
+  bool isFileStoreable({bool getThumbnail = false}) {
+    final database = room.client.database;
+    final thisInfoMap = getThumbnail ? thumbnailInfoMap : infoMap;
+    return thisInfoMap['size'] is int &&
+        thisInfoMap['size'] <= database.maxFileSize;
+  }
+
   /// Downloads (and decrypts if necessary) the attachment of this
   /// event and returns it as a [MatrixFile]. If this event doesn't
   /// contain an attachment, this throws an error. Set [getThumbnail] to
@@ -775,10 +782,7 @@ class Event extends MatrixEvent {
       throw ('Encryption is not enabled in your Client.');
     }
 
-    // Is this file storeable?
-    final thisInfoMap = getThumbnail ? thumbnailInfoMap : infoMap;
-    var storeable = thisInfoMap['size'] is int &&
-        thisInfoMap['size'] <= database.maxFileSize;
+    var storeable = isFileStoreable(getThumbnail: getThumbnail);
 
     Uint8List? uint8list;
     if (storeable) {

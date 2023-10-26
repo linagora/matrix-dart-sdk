@@ -98,8 +98,7 @@ class MatrixFile {
     );
   }
 
-  factory MatrixFile.fromFileInfo(
-      {required FileInfo fileInfo}) {
+  factory MatrixFile.fromFileInfo({required FileInfo fileInfo}) {
     final msgType = msgTypeFromMime(fileInfo.mimeType);
     if (msgType == MessageTypes.Image) {
       return MatrixImageFile(
@@ -113,15 +112,14 @@ class MatrixFile {
     }
     if (msgType == MessageTypes.Video) {
       return MatrixVideoFile(
-        bytes: fileInfo is VideoFileInfo 
-          ? fileInfo.imagePlaceholderBytes
-          : null,
+        bytes:
+            fileInfo is VideoFileInfo ? fileInfo.imagePlaceholderBytes : null,
         name: fileInfo.fileName,
         mimeType: fileInfo.mimeType,
         filePath: fileInfo.filePath,
         width: (fileInfo.metadata['w'] as double?)?.toInt(),
         height: (fileInfo.metadata['h'] as double?)?.toInt(),
-        duration: fileInfo.metadata['duration'], 
+        duration: fileInfo.metadata['duration'],
       );
     }
     if (msgType == MessageTypes.Audio) {
