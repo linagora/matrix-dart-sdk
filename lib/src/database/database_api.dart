@@ -124,9 +124,13 @@ abstract class DatabaseApi {
 
   Future<Uint8List?> getFile(Uri mxcUri);
 
+  Future<File?> getFileEntity(Uri mxcUri);
+
   Future storeFile(Uri mxcUri, Uint8List bytes, int time);
 
   Future<bool> deleteFile(Uri mxcUri);
+
+  Future<void> storeFileEntity(Uri mxcUri, File file, int time);
 
   Future storeSyncFilterId(
     String syncFilterId,

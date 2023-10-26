@@ -18,6 +18,7 @@
 
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 import 'dart:math';
 
 import 'package:sqflite_common/sqflite.dart';
@@ -531,6 +532,16 @@ class MatrixSdkDatabase extends DatabaseApi with DatabaseFileStorage {
 
         return await _getEventsByIds(eventIds.cast<String>(), room);
       });
+
+  @override
+  Future<Uint8List?> getFile(Uri mxcUri) async {
+    return null;
+  }
+
+  @override
+  Future<File?> getFileEntity(Uri mxcUri) async {
+    return null;
+  }
 
   @override
   Future<StoredInboundGroupSession?> getInboundGroupSession(
@@ -1245,6 +1256,11 @@ class MatrixSdkDatabase extends DatabaseApi with DatabaseFileStorage {
         await roomStateBox.put(key, event.toJson());
       }
     }
+  }
+
+  @override
+  Future<void> storeFileEntity(Uri mxcUri, File file, int time) async {
+    return;
   }
 
   @override
