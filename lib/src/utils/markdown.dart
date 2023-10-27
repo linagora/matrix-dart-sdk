@@ -32,6 +32,17 @@ class LinebreakSyntax extends InlineSyntax {
   }
 }
 
+class MultipleLinebreaksSyntax extends InlineSyntax {
+  MultipleLinebreaksSyntax() : super(r'\n{2,}');
+
+  @override
+  bool onMatch(InlineParser parser, Match match) {
+    parser.addNode(Element.empty('br'));
+    parser.addNode(Element.empty('br'));
+    return true;
+  }
+}
+
 class SpoilerSyntax extends TagSyntax {
   SpoilerSyntax() : super(r'\|\|', requiresDelimiterRun: true);
 
@@ -217,6 +228,7 @@ String markdown(
     ],
     inlineSyntaxes: [
       StrikethroughSyntax(),
+      MultipleLinebreaksSyntax(),
       LinebreakSyntax(),
       SpoilerSyntax(),
       EmoteSyntax(getEmotePacks),
@@ -224,6 +236,7 @@ String markdown(
       MentionSyntax(getMention),
       InlineLatexSyntax(),
     ],
+    inlineOnly : true,
   );
 
   var stripPTags = '<p>'.allMatches(ret).length <= 1;
