@@ -255,7 +255,7 @@ abstract class Cipher {
     final intPointer = memNeeded.cast<IntPtr>();
     final keyPointer = memNeeded + sizeOf<IntPtr>();
     final initialVectorPointer = keyPointer + keyDecoded.length;
-    final hashValuePointer = initialVectorPointer + maxHashSize;
+    final hashValuePointer = initialVectorPointer + initialVectorDecoded.length;
     final hashSizePointer = hashValuePointer + maxHashSize;
 
     IOSink? outIoSink;
