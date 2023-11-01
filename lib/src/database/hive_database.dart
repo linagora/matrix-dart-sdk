@@ -1104,11 +1104,6 @@ class FamedlySdkHiveDatabase extends DatabaseApi with ZoneTransactionMixin {
   }
 
   @override
-  Future<void> storeFileEntity(Uri mxcUri, File file, int time) async {
-    
-  }
-
-  @override
   Future<void> storeInboundGroupSession(
       String roomId,
       String sessionId,
