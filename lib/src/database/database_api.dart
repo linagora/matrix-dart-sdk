@@ -133,8 +133,6 @@ abstract class DatabaseApi {
 
   Future<bool> deleteFile(Uri mxcUri);
 
-  Future<void> storeFileEntity(Uri mxcUri, File file, int time);
-
   Future storeSyncFilterId(
     String syncFilterId,
   );

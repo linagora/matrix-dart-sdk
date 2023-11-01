@@ -1262,9 +1262,6 @@ class MatrixSdkDatabase extends DatabaseApi with DatabaseFileStorage {
   }
 
   @override
-  Future<void> storeFileEntity(Uri mxcUri, File file, int time) async {}
-
-  @override
   Future<void> storeInboundGroupSession(
     String roomId,
     String sessionId,
