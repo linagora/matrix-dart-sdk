@@ -16,6 +16,7 @@
  *   along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
+import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:matrix/encryption/utils/olm_session.dart';
