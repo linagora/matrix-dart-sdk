@@ -1574,7 +1574,7 @@ class Room {
   /// Uploads a new user avatar for this room. Returns the event ID of the new
   /// m.room.avatar event. Leave empty to remove the current avatar.
   Future<String> setAvatar(MatrixFile? file) async {
-    final uploadResp = file == null && file!.bytes != null
+    final uploadResp = file == null || file.bytes!.isEmpty
         ? null
         : await client.uploadContent(file.bytes!, filename: file.name);
     return await client.setRoomStateWithKey(
