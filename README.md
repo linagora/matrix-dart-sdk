@@ -33,3 +33,12 @@ dart test --concurrency=$thread_count test
 
 - Adding the `-x olm` flag will skip tests which require olm
 - Using `-t olm` will run only olm specific tests, but these will probably break as they need prior setup (which is not marked as olm and hence won't be run)
+
+# Folked supported
+This is a forked repository. We are trying to maintain this repo for our vision of our project, but we still need to contribute to the upstream repository, which is a problem that also impacts the community. And we try to keep track of the updates of the upstream repository version to version.
+
+It is the process to keep track with the `main` branch in upstream repository
+
+1. Sync folk `main` branch here with upstream `main`
+2. Checkout new branch `twake-supported-0.x.x` from latest main
+3. Cherry pick and resolve confliction from the previous `twake-supported-0.y.z`
