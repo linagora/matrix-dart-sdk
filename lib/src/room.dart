@@ -2118,7 +2118,7 @@ class Room {
     MatrixFile? file, {
     void Function(int)? onUploadProgress,
   }) async {
-    final uploadResp = file == null && file!.bytes != null
+    final uploadResp = file == null || file.bytes?.isNotEmpty != true
         ? null
         : await client.uploadContent(
             file.bytes!,
