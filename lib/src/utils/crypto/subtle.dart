@@ -5,8 +5,8 @@
 library;
 
 import 'dart:async';
+import 'dart:html_common';
 import 'dart:js_interop';
-import 'dart:js_util';
 import 'dart:typed_data';
 
 @JS()
