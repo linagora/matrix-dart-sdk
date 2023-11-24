@@ -239,8 +239,12 @@ class Encryption {
         // the entry should always exist. In the case it doesn't, the following
         // line *could* throw an error. As that is a future, though, and we call
         // it un-awaited here, nothing happens, which is exactly the result we want
-        client.database?.updateInboundGroupSessionIndexes(
-            json.encode(inboundGroupSession.indexes), roomId, sessionId);
+        client.database
+            // ignore: discarded_futures
+            ?.updateInboundGroupSessionIndexes(
+                json.encode(inboundGroupSession.indexes), roomId, sessionId)
+            // ignore: discarded_futures
+            .onError((e, _) => Logs().e('Ignoring error for updating indexes'));
       }
       decryptedPayload = json.decode(decryptResult.plaintext);
     } catch (exception) {
