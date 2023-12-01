@@ -667,6 +667,26 @@ class Room {
         stdout: commandStdout,
       );
     }
+
+    final eventContent = getEventContentFromMsgText(
+      message: message,
+      parseMarkdown: parseMarkdown,
+      msgtype: msgtype,
+    );
+    return sendEvent(
+        eventContent,
+        txid: txid,
+        inReplyTo: inReplyTo,
+        editEventId: editEventId,
+        threadRootEventId: threadRootEventId,
+        threadLastEventId: threadLastEventId);
+  }
+
+  Map<String, dynamic> getEventContentFromMsgText({
+    required String message,
+    bool parseMarkdown = true,
+    String msgtype = MessageTypes.Text,
+  }) {
     final event = <String, dynamic>{
       'msgtype': msgtype,
       'body': message,
@@ -685,14 +705,7 @@ class Room {
         event['formatted_body'] = html;
       }
     }
-    return sendEvent(
-      event,
-      txid: txid,
-      inReplyTo: inReplyTo,
-      editEventId: editEventId,
-      threadRootEventId: threadRootEventId,
-      threadLastEventId: threadLastEventId,
-    );
+    return event;
   }
 
   /// Sends a reaction to an event with an [eventId] and the content [key] into a room.
