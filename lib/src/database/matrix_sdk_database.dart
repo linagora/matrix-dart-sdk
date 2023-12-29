@@ -34,6 +34,8 @@ import 'package:matrix/src/utils/copy_map.dart';
 import 'package:matrix/src/utils/queued_to_device_event.dart';
 import 'package:sqflite_common/sqflite.dart';
 
+typedef OnStartMigrating = Function(int oldVersion, int newVersion);
+
 /// Database based on SQlite3 on native and IndexedDB on web. For native you
 /// have to pass a `Database` object, which can be created with the sqflite
 /// package like this:
@@ -51,6 +53,7 @@ import 'package:sqflite_common/sqflite.dart';
 class MatrixSdkDatabase extends DatabaseApi with DatabaseFileStorage {
   static const int version = 10;
   final String name;
+  final OnStartMigrating? onStartMigrating;
 
   late BoxCollection _collection;
   late Box<String> _clientBox;
@@ -181,6 +184,7 @@ class MatrixSdkDatabase extends DatabaseApi with DatabaseFileStorage {
     int maxFileSize = 0,
     Uri? fileStorageLocation,
     Duration? deleteFilesAfterDuration,
+    OnStartMigrating? onStartMigrating,
   }) async {
     final matrixSdkDatabase = MatrixSdkDatabase._(
       name,
@@ -190,6 +194,7 @@ class MatrixSdkDatabase extends DatabaseApi with DatabaseFileStorage {
       maxFileSize: maxFileSize,
       fileStorageLocation: fileStorageLocation,
       deleteFilesAfterDuration: deleteFilesAfterDuration,
+      onStartMigrating: onStartMigrating,
     );
     await matrixSdkDatabase.open();
     return matrixSdkDatabase;
@@ -203,6 +208,7 @@ class MatrixSdkDatabase extends DatabaseApi with DatabaseFileStorage {
     this.maxFileSize = 0,
     Uri? fileStorageLocation,
     Duration? deleteFilesAfterDuration,
+    this.onStartMigrating,
   }) {
     this.fileStorageLocation = fileStorageLocation;
     this.deleteFilesAfterDuration = deleteFilesAfterDuration;
@@ -320,6 +326,13 @@ class MatrixSdkDatabase extends DatabaseApi with DatabaseFileStorage {
 
   Future<void> _migrateFromVersion(int currentVersion) async {
     Logs().i('Migrate store database from version $currentVersion to $version');
+
+    if (onStartMigrating != null) {
+      onStartMigrating?.call(
+        currentVersion,
+        version,
+      );
+    }
 
     if (version == 8) {
       // Migrate to inbound group sessions upload queue:
