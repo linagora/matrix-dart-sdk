@@ -358,7 +358,7 @@ class MatrixSdkDatabase extends DatabaseApi with DatabaseFileStorage {
       }
     }
     // The default version upgrade:
-    await clearCache();
+    await clear();
     await _clientBox.put('version', version.toString());
   }
 
