@@ -251,7 +251,7 @@ class HiveCollectionsDatabase extends DatabaseApi {
         version,
       );
     }
-    await clearCache();
+    await clear();
     await _clientBox.put('version', version.toString());
   }
 
