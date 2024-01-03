@@ -51,7 +51,6 @@ typedef OnStartMigrating = Function(int oldVersion, int newVersion);
 /// Learn more at:
 /// https://github.com/famedly/matrix-dart-sdk/issues/1642#issuecomment-1865827227
 class MatrixSdkDatabase extends DatabaseApi with DatabaseFileStorage {
-  static const int version = 10;
   final String name;
   final OnStartMigrating? onStartMigrating;
 
@@ -115,6 +114,8 @@ class MatrixSdkDatabase extends DatabaseApi with DatabaseFileStorage {
     'Breaks support for web standalone. Use [fileStorageLocation] instead.',
   )
   Object? get fileStoragePath => fileStorageLocation?.toFilePath();
+
+  int get version => 10;
 
   static const String _clientBoxName = 'box_client';
 
