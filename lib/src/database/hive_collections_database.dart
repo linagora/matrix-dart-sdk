@@ -40,7 +40,6 @@ typedef OnStartMigrating = Function(int oldVersion, int newVersion);
 @Deprecated(
     'Use [MatrixSdkDatabase] instead. Don\'t forget to properly migrate!')
 class HiveCollectionsDatabase extends DatabaseApi {
-  static const int version = 7;
   final String name;
   final String? path;
   final HiveCipher? key;
@@ -92,6 +91,8 @@ class HiveCollectionsDatabase extends DatabaseApi {
   late CollectionBox<String> _seenDeviceIdsBox;
 
   late CollectionBox<String> _seenDeviceKeysBox;
+
+  int get version => 7;
 
   String get _clientBoxName => 'box_client';
 
