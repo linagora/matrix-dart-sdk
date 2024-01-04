@@ -90,6 +90,8 @@ class HiveCollectionsDatabase extends DatabaseApi {
 
   late CollectionBox<String> _seenDeviceKeysBox;
 
+  late CollectionBox<String> _roomIdClientBox;
+
   String get _clientBoxName => 'box_client';
 
   String get _accountDataBoxName => 'box_account_data';
@@ -128,6 +130,8 @@ class HiveCollectionsDatabase extends DatabaseApi {
 
   String get _seenDeviceKeysBoxName => 'box_seen_device_keys';
 
+  String get _roomIdClientBoxName => 'box_room_id_client';
+
   HiveCollectionsDatabase(
     this.name,
     this.path,{
@@ -162,6 +166,7 @@ class HiveCollectionsDatabase extends DatabaseApi {
         _eventsBoxName,
         _seenDeviceIdsBoxName,
         _seenDeviceKeysBoxName,
+        _roomIdClientBoxName,
       },
       key: key,
       path: path,
@@ -229,6 +234,10 @@ class HiveCollectionsDatabase extends DatabaseApi {
       _seenDeviceKeysBoxName,
     );
 
+    _roomIdClientBox = await _collection.openBox(
+      _roomIdClientBoxName,
+    );
+
     // Check version and check if we need a migration
     final currentVersion = int.tryParse(await _clientBox.get('version') ?? '');
     if (currentVersion == null) {
@@ -276,6 +285,7 @@ class HiveCollectionsDatabase extends DatabaseApi {
         await _eventsBox.clear();
         await _seenDeviceIdsBox.clear();
         await _seenDeviceKeysBox.clear();
+        await _roomIdClientBox.clear();
         if (supportDeleteCollections) {
           await _collection.deleteFromDisk();
         }
@@ -337,6 +347,9 @@ class HiveCollectionsDatabase extends DatabaseApi {
           final multiKey = TupleKey.fromString(key);
           if (multiKey.parts.first != roomId) continue;
           await _roomAccountDataBox.delete(key);
+        }
+        for (final key in await _roomIdClientBox.getAllKeys()) {
+          await _roomIdClientBox.delete(key);
         }
         await _roomsBox.delete(roomId);
       });
@@ -604,7 +617,13 @@ class HiveCollectionsDatabase extends DatabaseApi {
 
           // Add to the list and continue.
           rooms[room.id] = room;
+
         }
+        
+        
+        await Future.wait(rooms.values.map((room) {
+          return _roomIdClientBox.put(room.id, client.clientName);
+        }));
 
         for (final room in rooms.values) {
           // Add states to the room
@@ -1532,6 +1551,7 @@ class HiveCollectionsDatabase extends DatabaseApi {
       _eventsBoxName: await _eventsBox.getAllValues(),
       _seenDeviceIdsBoxName: await _seenDeviceIdsBox.getAllValues(),
       _seenDeviceKeysBoxName: await _seenDeviceKeysBox.getAllValues(),
+      _roomIdClientBoxName: await _roomIdClientBox.getAllValues(),
     };
     final json = jsonEncode(dataMap);
     await clear(supportDeleteCollections: supportDeleteCollections);
@@ -1605,6 +1625,9 @@ class HiveCollectionsDatabase extends DatabaseApi {
       }
       for (final key in json[_seenDeviceKeysBoxName]!.keys) {
         await _seenDeviceKeysBox.put(key, json[_seenDeviceKeysBoxName]![key]);
+      }
+      for (final key in json[_roomIdClientBoxName]!.keys) {
+        await _roomIdClientBox.put(key, json[_roomIdClientBoxName]![key]);
       }
       return true;
     } catch (e, s) {
