@@ -71,6 +71,12 @@ const String fileSendingStatusKey =
 
 const String emptyRoomName = 'Empty chat';
 
+const displayMembershipsFilter = [
+  Membership.join,
+  Membership.invite,
+  Membership.knock,
+];
+
 /// Represents a Matrix room.
 class Room {
   /// The full qualified Matrix ID for the room in the format '!localid:server.abc'.
@@ -1378,11 +1384,7 @@ class Room {
   /// Set [cache] to `false` if you do not want to cache the users in memory
   /// for this session which is highly recommended for large public rooms.
   Future<List<User>> requestParticipants(
-      [List<Membership> membershipFilter = const [
-        Membership.join,
-        Membership.invite,
-        Membership.knock,
-      ],
+      [List<Membership> membershipFilter = displayMembershipsFilter,
       bool suppressWarning = false,
       bool cache = true]) async {
     if (!participantListComplete || partial) {
@@ -1402,6 +1404,17 @@ class Room {
       return getParticipants(membershipFilter);
     }
 
+    return await requestParticipantsFromServer(
+      membershipFilter,
+      suppressWarning,
+      cache,
+    );
+  }
+
+  Future<List<User>> requestParticipantsFromServer(
+      [List<Membership> membershipFilter = displayMembershipsFilter,
+      bool suppressWarning = false,
+      bool cache = true]) async {
     final memberCount = summary.mJoinedMemberCount;
     if (!suppressWarning && cache && memberCount != null && memberCount > 100) {
       Logs().w('''
