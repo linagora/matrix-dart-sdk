@@ -41,6 +41,12 @@ const String messageSendingStatusKey =
 const String fileSendingStatusKey =
     'com.famedly.famedlysdk.file_sending_status';
 
+const displayMembershipsFilter = [
+  Membership.join,
+  Membership.invite,
+  Membership.knock,
+];
+
 /// Represents a Matrix room.
 class Room {
   /// The full qualified Matrix ID for the room in the format '!localid:server.abc'.
@@ -1784,11 +1790,7 @@ class Room {
   /// By default users are only cached in encrypted rooms as encrypted rooms
   /// need a full member list.
   Future<List<User>> requestParticipants([
-    List<Membership> membershipFilter = const [
-      Membership.join,
-      Membership.invite,
-      Membership.knock,
-    ],
+    List<Membership> membershipFilter = displayMembershipsFilter,
     bool suppressWarning = false,
     bool? cache,
   ]) async {
@@ -1809,6 +1811,18 @@ class Room {
       return getParticipants(membershipFilter);
     }
 
+    return requestParticipantsFromServer(
+      membershipFilter,
+      suppressWarning,
+      cache,
+    );
+  }
+
+  Future<List<User>> requestParticipantsFromServer([
+    List<Membership> membershipFilter = displayMembershipsFilter,
+    bool suppressWarning = false,
+    bool? cache,
+  ]) async {
     cache ??= encrypted;
 
     final memberCount = summary.mJoinedMemberCount;
