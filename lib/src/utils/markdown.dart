@@ -225,7 +225,6 @@ String markdown(
       MentionSyntax(getMention),
       InlineLatexSyntax(),
     ],
-    inlineOnly: true,
   );
 
   var stripPTags = '<p>'.allMatches(ret).length <= 1;
