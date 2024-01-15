@@ -61,6 +61,14 @@ const String messageSendingStatusKey =
 const String fileSendingStatusKey =
     'com.famedly.famedlysdk.file_sending_status';
 
+const String emptyRoomName = 'Empty chat';
+
+const displayMembershipsFilter = [
+  Membership.join,
+  Membership.invite,
+  Membership.knock,
+];
+
 /// Represents a Matrix room.
 class Room {
   /// The full qualified Matrix ID for the room in the format '!localid:server.abc'.
@@ -1450,18 +1458,11 @@ class Room {
   /// [[Membership.join, Membership.invite, Membership.knock]]
   /// Set [cache] to `false` if you do not want to cache the users in memory
   /// for this session which is highly recommended for large public rooms.
-  /// By default users are only cached in encrypted rooms as encrypted rooms
-  /// need a full member list.
-  Future<List<User>> requestParticipants([
-    List<Membership> membershipFilter = const [
-      Membership.join,
-      Membership.invite,
-      Membership.knock,
-    ],
-    bool suppressWarning = false,
-    bool? cache,
-  ]) async {
-    if (!participantListComplete || partial) {
+  Future<List<User>> requestParticipants(
+      [List<Membership> membershipFilter = displayMembershipsFilter,
+      bool suppressWarning = false,
+      bool cache = true]) async {
+    if (!participantListComplete && partial) {
       // we aren't fully loaded, maybe the users are in the database
       // We always need to check the database in the partial case, since state
       // events won't get written to memory in this case and someone new could
@@ -1478,8 +1479,17 @@ class Room {
       return getParticipants(membershipFilter);
     }
 
-    cache ??= encrypted;
+    return await requestParticipantsFromServer(
+      membershipFilter,
+      suppressWarning,
+      cache,
+    );
+  }
 
+  Future<List<User>> requestParticipantsFromServer(
+      [List<Membership> membershipFilter = displayMembershipsFilter,
+      bool suppressWarning = false,
+      bool cache = true]) async {
     final memberCount = summary.mJoinedMemberCount;
     if (!suppressWarning && cache && memberCount != null && memberCount > 100) {
       Logs().w('''
