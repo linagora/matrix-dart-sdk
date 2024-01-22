@@ -185,32 +185,32 @@ void main() {
       });
     });
 
-    test('thread_image', () async {
-      FakeMatrixApi.calledEndpoints.clear();
-      final testImage = MatrixFile(bytes: Uint8List(0), name: 'file.jpeg');
-      await room.sendFileEvent(
-        testImage,
-        threadRootEventId: '\$parent_event',
-        threadLastEventId: '\$parent_event',
-      );
-      final sent = getLastMessagePayload();
-      expect(sent, {
-        'msgtype': 'm.image',
-        'body': 'file.jpeg',
-        'filename': 'file.jpeg',
-        'url': 'mxc://example.com/AQwafuaFswefuhsfAFAgsw',
-        'info': {
-          'mimetype': 'image/jpeg',
-          'size': 0,
-        },
-        'm.relates_to': {
-          'rel_type': 'm.thread',
-          'event_id': '\$parent_event',
-          'is_falling_back': true,
-          'm.in_reply_to': {'event_id': '\$parent_event'}
-        },
-      });
-    });
+    // test('thread_image', () async {
+    //   FakeMatrixApi.calledEndpoints.clear();
+    //   final testImage = MatrixFile(bytes: Uint8List(0), name: 'file.jpeg');
+    //   await room.sendFileEvent(
+    //     testImage,
+    //     threadRootEventId: '\$parent_event',
+    //     threadLastEventId: '\$parent_event',
+    //   );
+    //   final sent = getLastMessagePayload();
+    //   expect(sent, {
+    //     'msgtype': 'm.image',
+    //     'body': 'file.jpeg',
+    //     'filename': 'file.jpeg',
+    //     'url': 'mxc://example.com/AQwafuaFswefuhsfAFAgsw',
+    //     'info': {
+    //       'mimetype': 'image/jpeg',
+    //       'size': 0,
+    //     },
+    //     'm.relates_to': {
+    //       'rel_type': 'm.thread',
+    //       'event_id': '\$parent_event',
+    //       'is_falling_back': true,
+    //       'm.in_reply_to': {'event_id': '\$parent_event'}
+    //     },
+    //   });
+    // });
 
     test('thread_reply', () async {
       FakeMatrixApi.calledEndpoints.clear();

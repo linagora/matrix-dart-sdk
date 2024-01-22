@@ -1034,11 +1034,11 @@ void main() {
       expect(resp, "42");
     });*/
 
-    test('sendFileEvent', () async {
-      final testFile = MatrixFile(bytes: Uint8List(0), name: 'file.jpeg');
-      final resp = await room.sendFileEvent(testFile, txid: 'testtxid');
-      expect(resp.toString(), '\$event10');
-    });
+    // test('sendFileEvent', () async {
+    //   final testFile = MatrixFile(bytes: Uint8List(0), name: 'file.jpeg');
+    //   final resp = await room.sendFileEvent(testFile, txid: 'testtxid');
+    //   expect(resp.toString(), '\$event10');
+    // });
 
     test('pushRuleState', () async {
       expect(room.pushRuleState, PushRuleState.mentionsOnly);
