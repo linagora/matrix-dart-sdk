@@ -33,6 +33,7 @@ class MatrixFile {
   final String name;
   final String mimeType;
   final String? filePath;
+  final Stream<List<int>>? readStream;
 
   /// Encrypts this file and returns the
   /// encryption information as an [EncryptedFile].
@@ -43,36 +44,29 @@ class MatrixFile {
     return null;
   }
 
-  MatrixFile({this.bytes, required String name, String? mimeType, this.filePath})
-      : mimeType = mimeType != null && mimeType.isNotEmpty
-            ? mimeType
-            : lookupMimeType(name, headerBytes: bytes) ??
-                'application/octet-stream',
+  MatrixFile({this.bytes, required String name, String? mimeType, this.filePath, this.readStream,})
+      : mimeType = mimeType ??
+            lookupMimeType(name, headerBytes: bytes) ??
+            'application/octet-stream',
         name = name.split('/').last;
 
   /// derivatives the MIME type from the [bytes] and correspondingly creates a
   /// [MatrixFile], [MatrixImageFile], [MatrixAudioFile] or a [MatrixVideoFile]
-  factory MatrixFile.fromMimeType({
-    required Uint8List bytes,
-    required String name,
-    String? mimeType,
-    String? filePath,
-  }) {
-    final msgType = msgTypeFromMime(
-      mimeType ??
-          lookupMimeType(name, headerBytes: bytes) ??
-          'application/octet-stream',
-    );
+  factory MatrixFile.fromMimeType(
+      { Uint8List? bytes, required String name, String? mimeType, String? filePath, Stream<List<int>>? readStream}) {
+    final msgType = msgTypeFromMime(mimeType ??
+        lookupMimeType(name, headerBytes: bytes) ??
+        'application/octet-stream');
     if (msgType == MessageTypes.Image) {
-      return MatrixImageFile(name: name, mimeType: mimeType, filePath: filePath, bytes: bytes);
+      return MatrixImageFile(name: name, mimeType: mimeType, filePath: filePath, bytes: bytes, readStream: readStream);
     }
     if (msgType == MessageTypes.Video) {
-      return MatrixVideoFile(bytes: bytes, name: name, mimeType: mimeType, filePath: filePath);
+      return MatrixVideoFile(bytes: bytes, name: name, mimeType: mimeType, filePath: filePath, readStream: readStream);
     }
     if (msgType == MessageTypes.Audio && bytes != null) {
-      return MatrixAudioFile(bytes: bytes, name: name, mimeType: mimeType, filePath: filePath);
+      return MatrixAudioFile(bytes: bytes, name: name, mimeType: mimeType, filePath: filePath, readStream: readStream);
     }
-    return MatrixFile(bytes: bytes, name: name, mimeType: mimeType, filePath: filePath);
+    return MatrixFile(bytes: bytes, name: name, mimeType: mimeType, filePath: filePath, readStream: readStream);
   }
 
   factory MatrixFile.fromFileInfo(
@@ -86,6 +80,7 @@ class MatrixFile {
         bytes: null,
         width: fileInfo.metadata['w'],
         height: fileInfo.metadata['h'],
+        readStream: fileInfo.readStream,
       );
     }
     if (msgType == MessageTypes.Video) {
@@ -99,6 +94,7 @@ class MatrixFile {
         width: fileInfo.metadata['w'],
         height: fileInfo.metadata['h'],
         duration: fileInfo.metadata['duration'], 
+        readStream: fileInfo.readStream,
       );
     }
     if (msgType == MessageTypes.Audio) {
@@ -108,6 +104,7 @@ class MatrixFile {
         mimeType: fileInfo.mimeType,
         filePath: fileInfo.filePath,
         duration: fileInfo.metadata['duration'],
+        readStream: fileInfo.readStream,
       );
     }
     return MatrixFile(
@@ -115,6 +112,7 @@ class MatrixFile {
       name: fileInfo.fileName,
       mimeType: fileInfo.mimeType,
       filePath: fileInfo.filePath,
+      readStream: fileInfo.readStream,
     );
   }
 
@@ -145,16 +143,16 @@ class MatrixFile {
 
 class MatrixImageFile extends MatrixFile {
   MatrixImageFile({
-    Uint8List? bytes,
-    required String name,
+    super.bytes,
+    required super.name,
     super.filePath,
-    String? mimeType,
+    super.mimeType,
     int? width,
     int? height,
     this.blurhash,
+    super.readStream,
   })  : _width = width,
-        _height = height,
-        super(bytes: bytes, name: name, mimeType: mimeType);
+        _height = height;
 
   /// Creates a new image file and calculates the width, height and blurhash.
   static Future<MatrixImageFile> create({
@@ -407,15 +405,15 @@ class MatrixVideoFile extends MatrixFile {
   final int? height;
   final int? duration;
 
-  MatrixVideoFile({
-    Uint8List? bytes,
-    required String name,
-    String? mimeType,
-    super.filePath,
-    this.width,
-    this.height,
-    this.duration,
-  }) : super(bytes: bytes, name: name, mimeType: mimeType);
+  MatrixVideoFile(
+      {super.bytes,
+      required super.name,
+      super.mimeType,
+      super.filePath,
+      super.readStream,
+      this.width,
+      this.height,
+      this.duration});
 
   @override
   String get msgType => 'm.video';
@@ -432,13 +430,13 @@ class MatrixVideoFile extends MatrixFile {
 class MatrixAudioFile extends MatrixFile {
   final int? duration;
 
-  MatrixAudioFile({
-    required Uint8List bytes,
-    required String name,
-    String? mimeType,
-    super.filePath,
-    this.duration,
-  }) : super(bytes: bytes, name: name, mimeType: mimeType);
+  MatrixAudioFile(
+      {required Uint8List super.bytes,
+      required super.name,
+      super.mimeType,
+      super.filePath,
+      super.readStream,
+      this.duration});
 
   @override
   String get msgType => 'm.audio';
