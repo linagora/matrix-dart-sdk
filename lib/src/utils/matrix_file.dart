@@ -32,6 +32,7 @@ class MatrixFile {
   final String name;
   final String mimeType;
   final String? filePath;
+  final Stream<List<int>>? readStream;
 
   /// Encrypts this file and returns the
   /// encryption information as an [EncryptedFile].
@@ -47,6 +48,7 @@ class MatrixFile {
     required String name,
     String? mimeType,
     this.filePath,
+    this.readStream,
   })  : mimeType = mimeType != null && mimeType.isNotEmpty
             ? mimeType
             : lookupMimeType(name, headerBytes: bytes) ??
@@ -60,6 +62,7 @@ class MatrixFile {
     required String name,
     String? mimeType,
     String? filePath,
+    Stream<List<int>>? readStream,
   }) {
     final msgType = msgTypeFromMime(
       mimeType ??
@@ -72,6 +75,7 @@ class MatrixFile {
         mimeType: mimeType,
         filePath: filePath,
         bytes: bytes,
+        readStream: readStream,
       );
     }
     if (msgType == MessageTypes.Video) {
@@ -80,6 +84,7 @@ class MatrixFile {
         name: name,
         mimeType: mimeType,
         filePath: filePath,
+        readStream: readStream,
       );
     }
     if (msgType == MessageTypes.Audio && bytes != null) {
@@ -88,6 +93,7 @@ class MatrixFile {
         name: name,
         mimeType: mimeType,
         filePath: filePath,
+        readStream: readStream,
       );
     }
     return MatrixFile(
@@ -95,6 +101,7 @@ class MatrixFile {
       name: name,
       mimeType: mimeType,
       filePath: filePath,
+      readStream: readStream,
     );
   }
 
@@ -108,6 +115,7 @@ class MatrixFile {
         bytes: null,
         width: fileInfo.metadata['w'],
         height: fileInfo.metadata['h'],
+        readStream: fileInfo.readStream,
       );
     }
     if (msgType == MessageTypes.Video) {
@@ -120,6 +128,7 @@ class MatrixFile {
         width: fileInfo.metadata['w'],
         height: fileInfo.metadata['h'],
         duration: fileInfo.metadata['duration'],
+        readStream: fileInfo.readStream,
       );
     }
     if (msgType == MessageTypes.Audio) {
@@ -129,6 +138,7 @@ class MatrixFile {
         mimeType: fileInfo.mimeType,
         filePath: fileInfo.filePath,
         duration: fileInfo.metadata['duration'],
+        readStream: fileInfo.readStream,
       );
     }
     return MatrixFile(
@@ -136,6 +146,7 @@ class MatrixFile {
       name: fileInfo.fileName,
       mimeType: fileInfo.mimeType,
       filePath: fileInfo.filePath,
+      readStream: fileInfo.readStream,
     );
   }
 
@@ -173,6 +184,7 @@ class MatrixImageFile extends MatrixFile {
     int? width,
     int? height,
     this.blurhash,
+    super.readStream,
   })  : _width = width,
         _height = height;
 
@@ -432,6 +444,7 @@ class MatrixVideoFile extends MatrixFile {
     required super.name,
     super.mimeType,
     super.filePath,
+    super.readStream,
     this.width,
     this.height,
     this.duration,
@@ -457,6 +470,7 @@ class MatrixAudioFile extends MatrixFile {
     required super.name,
     super.mimeType,
     super.filePath,
+    super.readStream,
     this.duration,
   });
 
