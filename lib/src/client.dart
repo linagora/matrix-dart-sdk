@@ -899,9 +899,10 @@ class Client extends MatrixApi {
     }
     if (groupCall) {
       powerLevelContentOverride ??= {};
-      powerLevelContentOverride['events'] ??= {};
-      powerLevelContentOverride['events'][EventTypes.GroupCallMember] ??=
-          powerLevelContentOverride['events_default'] ?? 0;
+      if (powerLevelContentOverride['events'] is Map) {
+        powerLevelContentOverride['events'][EventTypes.GroupCallMemberPrefix] = 0;
+        powerLevelContentOverride['events'][EventTypes.GroupCallPrefix] = 0;
+      }
     }
 
     final roomId = await createRoom(
