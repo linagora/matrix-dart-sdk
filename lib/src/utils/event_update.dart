@@ -16,6 +16,8 @@
  *   along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
+import 'package:equatable/equatable.dart';
+
 enum EventUpdateType {
   /// Newly received events from /sync
   timeline,
@@ -34,7 +36,7 @@ enum EventUpdateType {
 }
 
 @Deprecated('Use `Event` class directly instead.')
-class EventUpdate {
+class EventUpdate with EquatableMixin {
   /// Usually 'timeline', 'state' or whatever.
   final EventUpdateType type;
 
@@ -49,4 +51,11 @@ class EventUpdate {
     required this.type,
     required this.content,
   });
+
+  @override
+  List<Object?> get props => [
+        type,
+        roomID,
+        content,
+      ];
 }
