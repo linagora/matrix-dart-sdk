@@ -853,14 +853,13 @@ class Event extends MatrixEvent {
   /// it to plain text.
   /// [removeMarkdown] allow to remove the markdown formating from the event body.
   /// Usefull form message preview or notifications text.
-  Future<String> calcLocalizedBody(
-    MatrixLocalizations i18n, {
-    bool withSenderNamePrefix = false,
-    bool hideReply = false,
-    bool hideEdit = false,
-    bool plaintextBody = false,
-    bool removeMarkdown = false,
-  }) async {
+  Future<String> calcLocalizedBody(MatrixLocalizations i18n,
+      {bool withSenderNamePrefix = false,
+      bool hideReply = false,
+      bool hideEdit = false,
+      bool plaintextBody = false,
+      bool removeMarkdown = false,
+      bool removeBreakLine = false}) async {
     if (redacted) {
       await redactedBecause?.fetchSenderUser();
     }
@@ -872,47 +871,43 @@ class Event extends MatrixEvent {
       await fetchSenderUser();
     }
 
-    return calcLocalizedBodyFallback(
-      i18n,
-      withSenderNamePrefix: withSenderNamePrefix,
-      hideReply: hideReply,
-      hideEdit: hideEdit,
-      plaintextBody: plaintextBody,
-      removeMarkdown: removeMarkdown,
-    );
-  }
-
-  @Deprecated('Use calcLocalizedBody or calcLocalizedBodyFallback')
-  String getLocalizedBody(
-    MatrixLocalizations i18n, {
-    bool withSenderNamePrefix = false,
-    bool hideReply = false,
-    bool hideEdit = false,
-    bool plaintextBody = false,
-    bool removeMarkdown = false,
-  }) =>
-      calcLocalizedBodyFallback(
-        i18n,
+    return calcLocalizedBodyFallback(i18n,
         withSenderNamePrefix: withSenderNamePrefix,
         hideReply: hideReply,
         hideEdit: hideEdit,
         plaintextBody: plaintextBody,
         removeMarkdown: removeMarkdown,
-      );
+        removeBreakLine: removeBreakLine);
+  }
+
+  @Deprecated('Use calcLocalizedBody or calcLocalizedBodyFallback')
+  String getLocalizedBody(MatrixLocalizations i18n,
+          {bool withSenderNamePrefix = false,
+          bool hideReply = false,
+          bool hideEdit = false,
+          bool plaintextBody = false,
+          bool removeMarkdown = false,
+          bool removeBreakLine = false}) =>
+      calcLocalizedBodyFallback(i18n,
+          withSenderNamePrefix: withSenderNamePrefix,
+          hideReply: hideReply,
+          hideEdit: hideEdit,
+          plaintextBody: plaintextBody,
+          removeMarkdown: removeMarkdown,
+          removeBreakLine: removeBreakLine);
 
   /// Works similar to `calcLocalizedBody()` but does not wait for the sender
   /// user to be fetched. If it is not in the cache it will just use the
   /// fallback and display the localpart of the MXID according to the
   /// values of `formatLocalpart` and `mxidLocalPartFallback` in the `Client`
   /// class.
-  String calcLocalizedBodyFallback(
-    MatrixLocalizations i18n, {
-    bool withSenderNamePrefix = false,
-    bool hideReply = false,
-    bool hideEdit = false,
-    bool plaintextBody = false,
-    bool removeMarkdown = false,
-  }) {
+  String calcLocalizedBodyFallback(MatrixLocalizations i18n,
+      {bool withSenderNamePrefix = false,
+      bool hideReply = false,
+      bool hideEdit = false,
+      bool plaintextBody = false,
+      bool removeMarkdown = false,
+      bool removeBreakLine = false}) {
     if (redacted) {
       return i18n.removedBy(this);
     }
@@ -922,6 +917,7 @@ class Event extends MatrixEvent {
       hideEdit: hideEdit,
       plaintextBody: plaintextBody,
       removeMarkdown: removeMarkdown,
+      removeBreakLine: removeBreakLine,
     );
 
     final callback = EventLocalizations.localizationsMap[type];
@@ -944,12 +940,12 @@ class Event extends MatrixEvent {
   }
 
   /// Calculating the body of an event regardless of localization.
-  String calcUnlocalizedBody({
-    bool hideReply = false,
-    bool hideEdit = false,
-    bool plaintextBody = false,
-    bool removeMarkdown = false,
-  }) {
+  String calcUnlocalizedBody(
+      {bool hideReply = false,
+      bool hideEdit = false,
+      bool plaintextBody = false,
+      bool removeMarkdown = false,
+      bool removeBreakLine = false}) {
     if (redacted) {
       return 'Removed by ${senderFromMemoryOrFallback.displayName ?? senderId}';
     }
@@ -994,6 +990,11 @@ class Event extends MatrixEvent {
       final document = parse(html);
       body = document.documentElement?.text.trim() ?? body;
     }
+
+    if (removeBreakLine) {
+      body = body.replaceAll(RegExp(r'\n'), ' ');
+    }
+
     return body;
   }
 
