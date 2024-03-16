@@ -867,6 +867,7 @@ class Event extends MatrixEvent {
     bool hideEdit = false,
     bool plaintextBody = false,
     bool removeMarkdown = false,
+    bool removeBreakLine = false,
   }) async {
     if (redacted) {
       await redactedBecause?.fetchSenderUser();
@@ -886,6 +887,7 @@ class Event extends MatrixEvent {
       hideEdit: hideEdit,
       plaintextBody: plaintextBody,
       removeMarkdown: removeMarkdown,
+      removeBreakLine: removeBreakLine,
     );
   }
 
@@ -897,6 +899,7 @@ class Event extends MatrixEvent {
     bool hideEdit = false,
     bool plaintextBody = false,
     bool removeMarkdown = false,
+    bool removeBreakLine = false,
   }) =>
       calcLocalizedBodyFallback(
         i18n,
@@ -905,6 +908,7 @@ class Event extends MatrixEvent {
         hideEdit: hideEdit,
         plaintextBody: plaintextBody,
         removeMarkdown: removeMarkdown,
+        removeBreakLine: removeBreakLine,
       );
 
   /// Works similar to `calcLocalizedBody()` but does not wait for the sender
@@ -919,6 +923,7 @@ class Event extends MatrixEvent {
     bool hideEdit = false,
     bool plaintextBody = false,
     bool removeMarkdown = false,
+    bool removeBreakLine = false,
   }) {
     if (redacted) {
       if (status.intValue < EventStatus.synced.intValue) {
@@ -932,6 +937,7 @@ class Event extends MatrixEvent {
       hideEdit: hideEdit,
       plaintextBody: plaintextBody,
       removeMarkdown: removeMarkdown,
+      removeBreakLine: removeBreakLine,
     );
 
     final callback = EventLocalizations.localizationsMap[type];
@@ -959,6 +965,7 @@ class Event extends MatrixEvent {
     bool hideEdit = false,
     bool plaintextBody = false,
     bool removeMarkdown = false,
+    bool removeBreakLine = false,
   }) {
     if (redacted) {
       return 'Removed by ${senderFromMemoryOrFallback.displayName ?? senderId}';
@@ -1004,6 +1011,11 @@ class Event extends MatrixEvent {
       final document = parse(html);
       body = document.documentElement?.text.trim() ?? body;
     }
+
+    if (removeBreakLine) {
+      body = body.replaceAll(RegExp(r'\n'), ' ');
+    }
+
     return body;
   }
 
