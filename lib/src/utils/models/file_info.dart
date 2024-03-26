@@ -13,7 +13,7 @@ class FileInfo with EquatableMixin {
   FileInfo(
     this.fileName,
     this.filePath,
-    this.fileSize,{
+    this.fileSize, {
     this.readStream,
   });
 
@@ -48,7 +48,9 @@ class FileInfo with EquatableMixin {
         imagePlaceholderBytes: file.bytes ?? Uint8List(0),
         width: file.info['w'],
         height: file.info['h'],
-        duration: Duration(milliseconds: file.info['duration']),
+        duration: file.info['duration'] != null && file.info['duration'] is int
+            ? Duration(milliseconds: file.info['duration'])
+            : null,
       );
     }
     return FileInfo(file.name, file.filePath ?? '', file.size);
