@@ -1189,6 +1189,10 @@ class Client extends MatrixApi {
   final CachedStreamController<CachedPresence> onPresenceChanged =
       CachedStreamController();
 
+  /// Callback will be called on presence update and return latest value.
+  final CachedStreamController<CachedPresence> onlatestPresenceChanged =
+      CachedStreamController();
+
   /// Callback will be called on account data updates.
   final CachedStreamController<BasicEvent> onAccountData =
       CachedStreamController();
@@ -1801,13 +1805,27 @@ class Client extends MatrixApi {
         await _handleRooms(leave, direction: direction);
       }
     }
+
+    CachedPresence? lowestLastActivePresence;
+
     for (final newPresence in sync.presence ?? []) {
       final cachedPresence = CachedPresence.fromMatrixEvent(newPresence);
       presences[newPresence.senderId] = cachedPresence;
       // ignore: deprecated_member_use_from_same_package
       onPresence.add(newPresence);
       onPresenceChanged.add(cachedPresence);
+
+      if (lowestLastActivePresence == null ||
+          cachedPresence.lastActiveTimestamp!
+              .isBefore(lowestLastActivePresence.lastActiveTimestamp!)) {
+        lowestLastActivePresence = cachedPresence;
+      }
     }
+
+    if (lowestLastActivePresence != null) {
+      onlatestPresenceChanged.add(lowestLastActivePresence);
+    }
+
     for (final newAccountData in sync.accountData ?? []) {
       await database?.storeAccountData(
         newAccountData.type,
