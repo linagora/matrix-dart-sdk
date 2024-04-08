@@ -1816,8 +1816,10 @@ class Client extends MatrixApi {
       onPresenceChanged.add(cachedPresence);
 
       if (lowestLastActivePresence == null ||
-          cachedPresence.lastActiveTimestamp!
-              .isBefore(lowestLastActivePresence.lastActiveTimestamp!)) {
+          (cachedPresence.lastActiveTimestamp != null &&
+              lowestLastActivePresence.lastActiveTimestamp != null &&
+              cachedPresence.lastActiveTimestamp!
+                  .isBefore(lowestLastActivePresence.lastActiveTimestamp!))) {
         lowestLastActivePresence = cachedPresence;
       }
     }
