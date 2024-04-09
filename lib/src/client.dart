@@ -1746,6 +1746,10 @@ class Client extends MatrixApi {
   final CachedStreamController<CachedPresence> onPresenceChanged =
       CachedStreamController();
 
+  /// Callback will be called on presence update and return latest value.
+  final CachedStreamController<CachedPresence> onlatestPresenceChanged =
+      CachedStreamController();
+
   /// Callback will be called on account data updates.
   @Deprecated('Use `client.onSync` instead')
   final CachedStreamController<BasicEvent> onAccountData =
@@ -2514,6 +2518,9 @@ class Client extends MatrixApi {
         await _handleRooms(invite, direction: direction);
       }
     }
+
+    CachedPresence? lastActivePresence;
+
     for (final newPresence in sync.presence ?? <Presence>[]) {
       final cachedPresence = CachedPresence.fromMatrixEvent(newPresence);
       // ignore: deprecated_member_use_from_same_package
@@ -2522,6 +2529,18 @@ class Client extends MatrixApi {
       onPresence.add(newPresence);
       onPresenceChanged.add(cachedPresence);
       await database.storePresence(newPresence.senderId, cachedPresence);
+
+      if (lastActivePresence == null ||
+          (cachedPresence.lastActiveTimestamp != null &&
+              lastActivePresence.lastActiveTimestamp != null &&
+              cachedPresence.lastActiveTimestamp!
+                  .isAfter(lastActivePresence.lastActiveTimestamp!))) {
+        lastActivePresence = cachedPresence;
+      }
+    }
+
+    if (lastActivePresence != null) {
+      onlatestPresenceChanged.add(lastActivePresence);
     }
     for (final newAccountData in sync.accountData ?? <BasicEvent>[]) {
       await database.storeAccountData(

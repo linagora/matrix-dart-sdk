@@ -23,12 +23,12 @@ import 'dart:typed_data';
 
 import 'package:canonical_json/canonical_json.dart';
 import 'package:collection/collection.dart';
+import 'package:matrix/matrix.dart';
+import 'package:matrix/src/utils/client_init_exception.dart';
 import 'package:path/path.dart' show join;
 import 'package:test/test.dart';
 import 'package:vodozemac/vodozemac.dart' as vod;
 
-import 'package:matrix/matrix.dart';
-import 'package:matrix/src/utils/client_init_exception.dart';
 import 'fake_client.dart';
 import 'fake_database.dart';
 
@@ -1755,6 +1755,130 @@ void main() {
       );
 
       await client.dispose();
+    });
+
+    test('onlatestPresenceChanged', () async {
+      final client = await getClient();
+      await Future.delayed(Duration(milliseconds: 50));
+
+      CachedPresence? latestPresence;
+
+      client.onlatestPresenceChanged.stream.listen((presence) {
+        latestPresence = presence;
+      });
+
+      var presenceCounter = 0;
+      client.onPresenceChanged.stream.listen((CachedPresence data) {
+        presenceCounter++;
+      });
+
+      await client.handleSync(
+        SyncUpdate.fromJson({
+          'next_batch': 'fake',
+          'presence': {
+            'events': [
+              {
+                'sender': '@alice:example.com',
+                'type': 'm.presence',
+                'content': {
+                  'presence': 'online',
+                  'last_active_ago': 1000,
+                  'status_msg': 'Working on a project',
+                  'currently_active': true,
+                },
+              },
+              {
+                'sender': '@alice:example.com',
+                'type': 'm.presence',
+                'content': {
+                  'presence': 'offline',
+                  'last_active_ago': 5000,
+                  'status_msg': 'Away from keyboard',
+                  'currently_active': false,
+                },
+              },
+              {
+                'sender': '@alice:example.com',
+                'type': 'm.presence',
+                'content': {
+                  'presence': 'online',
+                  'last_active_ago': 2000,
+                  'status_msg': 'Reading documentation',
+                  'currently_active': true,
+                },
+              }
+            ],
+          },
+        }),
+      );
+
+      await Future.delayed(Duration(milliseconds: 50));
+
+      expect(presenceCounter, 3);
+
+      expect(latestPresence?.statusMsg, 'Working on a project');
+    });
+
+    test('onlatestPresenceChanged', () async {
+      final client = await getClient();
+      await Future.delayed(Duration(milliseconds: 50));
+
+      CachedPresence? latestPresence;
+
+      client.onlatestPresenceChanged.stream.listen((presence) {
+        latestPresence = presence;
+      });
+
+      var presenceCounter = 0;
+      client.onPresenceChanged.stream.listen((CachedPresence data) {
+        presenceCounter++;
+      });
+
+      await client.handleSync(
+        SyncUpdate.fromJson({
+          'next_batch': 'fake',
+          'presence': {
+            'events': [
+              {
+                'sender': '@alice:example.com',
+                'type': 'm.presence',
+                'content': {
+                  'presence': 'online',
+                  'last_active_ago': 1000,
+                  'status_msg': 'Working on a project',
+                  'currently_active': true,
+                },
+              },
+              {
+                'sender': '@alice:example.com',
+                'type': 'm.presence',
+                'content': {
+                  'presence': 'offline',
+                  'last_active_ago': 5000,
+                  'status_msg': 'Away from keyboard',
+                  'currently_active': false,
+                },
+              },
+              {
+                'sender': '@alice:example.com',
+                'type': 'm.presence',
+                'content': {
+                  'presence': 'online',
+                  'last_active_ago': 2000,
+                  'status_msg': 'Reading documentation',
+                  'currently_active': true,
+                },
+              }
+            ],
+          },
+        }),
+      );
+
+      await Future.delayed(Duration(milliseconds: 50));
+
+      expect(presenceCounter, 3);
+
+      expect(latestPresence?.statusMsg, 'Working on a project');
     });
 
     test(
