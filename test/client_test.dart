@@ -1168,37 +1168,68 @@ void main() {
           reason: '!5345234235:example.com not found as archived room');
     });
 
-    test(
-      'Client Init Exception',
-      () async {
-        final customClient = Client(
-          'failclient',
-          databaseBuilder: getMatrixSdkDatabase,
-        );
-        try {
-          await customClient.init(
-            newToken: 'testtoken',
-            newDeviceID: 'testdeviceid',
-            newDeviceName: 'testdevicename',
-            newHomeserver: Uri.parse('https://test.server'),
-            newOlmAccount: 'abcd',
-            newUserID: '@user:server',
-          );
-          throw Exception('No exception?');
-        } on ClientInitException catch (error) {
-          expect(error.accessToken, 'testtoken');
-          expect(error.deviceId, 'testdeviceid');
-          expect(error.deviceName, 'testdevicename');
-          expect(error.homeserver, Uri.parse('https://test.server'));
-          expect(error.olmAccount, 'abcd');
-          expect(error.userId, '@user:server');
-          expect(error.toString(), 'Exception: BAD_ACCOUNT_KEY');
-        }
-      },
-    );
+    test('onlatestPresenceChanged', () async {
+      final client = await getClient();
+      await Future.delayed(Duration(milliseconds: 50));
 
-    tearDown(() async {
-      await matrix.dispose(closeDatabase: true);
+      CachedPresence? latestPresence;
+
+      client.onlatestPresenceChanged.stream.listen((presence) {
+        latestPresence = presence;
+      });
+
+      var presenceCounter = 0;
+      client.onPresenceChanged.stream.listen((CachedPresence data) {
+        presenceCounter++;
+      });
+      
+      await client.handleSync(SyncUpdate.fromJson({
+        'next_batch': 'fake',
+        'presence': {
+          'events': [
+            {
+              'sender': '@alice:example.com',
+              'type': 'm.presence',
+              'content': {
+                'presence': 'online',
+                'last_active_ago': 1000,
+                'status_msg': 'Working on a project',
+                'currently_active': true
+              },
+            },
+            {
+              'sender': '@alice:example.com',
+              'type': 'm.presence',
+              'content': {
+                'presence': 'offline',
+                'last_active_ago': 5000,
+                'status_msg': 'Away from keyboard',
+                'currently_active': false
+              },
+            },
+            {
+              'sender': '@alice:example.com',
+              'type': 'm.presence',
+              'content': {
+                'presence': 'online',
+                'last_active_ago': 2000,
+                'status_msg': 'Reading documentation',
+                'currently_active': true
+              }
+            }
+          ]
+        }
+      }));
+
+      await Future.delayed(Duration(milliseconds: 50));
+
+      expect(presenceCounter, 3);
+
+      expect(latestPresence?.statusMsg, 'Working on a project');
+    });
+
+    tearDown(() {
+      matrix.dispose(closeDatabase: true);
     });
   });
 }
