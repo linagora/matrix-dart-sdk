@@ -1407,7 +1407,7 @@ class FamedlySdkHiveDatabase extends DatabaseApi with ZoneTransactionMixin {
   Future<void> delete() => Hive.deleteFromDisk();
   
   @override
-  Future<File?> getFileEntity(Uri mxcUri) {
+  Future<File?> getFileEntity(String eventId, String fileName) {
     throw UnimplementedError();
   }
 }
