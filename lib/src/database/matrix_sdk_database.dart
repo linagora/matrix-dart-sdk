@@ -20,6 +20,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:math';
+import 'dart:typed_data';
 
 import 'package:matrix/encryption/utils/olm_session.dart';
 import 'package:matrix/encryption/utils/outbound_group_session.dart';
@@ -1864,7 +1865,17 @@ class MatrixSdkDatabase extends DatabaseApi with DatabaseFileStorage {
       );
 
   @override
-  Future<File?> getFileEntity(Uri mxcUri) {
+  Future<File?> getFileEntity(String eventId, String fileName) {
+    throw UnimplementedError();
+  }
+
+  @override
+  Future storeEventFile(
+    String eventId,
+    String fileName,
+    Uint8List bytes,
+    int time,
+  ) {
     throw UnimplementedError();
   }
 }

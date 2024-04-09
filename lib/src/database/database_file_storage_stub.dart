@@ -14,6 +14,10 @@ mixin DatabaseFileStorage {
     return null;
   }
 
+  Future<Uint8List?> getFileFromEventId(String eventId, String fileName) async {
+    return null;
+  }
+
   Future<void> deleteOldFiles(int savedAt) async {
     return;
   }

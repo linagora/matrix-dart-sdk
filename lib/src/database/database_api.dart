@@ -127,11 +127,20 @@ abstract class DatabaseApi {
 
   Future<Uint8List?> getFile(Uri mxcUri);
 
-  Future<File?> getFileEntity(Uri mxcUri);
+  Future<Uint8List?> getFileFromEventId(String eventId, String fileName);
+
+  Future<File?> getFileEntity(String eventId, String fileName);
 
   Future storeFile(Uri mxcUri, Uint8List bytes, int time);
 
   Future<bool> deleteFile(Uri mxcUri);
+
+  Future storeEventFile(
+    String eventId,
+    String fileName,
+    Uint8List bytes,
+    int time,
+  );
 
   Future storeSyncFilterId(
     String syncFilterId,
