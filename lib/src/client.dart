@@ -1806,7 +1806,7 @@ class Client extends MatrixApi {
       }
     }
 
-    CachedPresence? lowestLastActivePresence;
+    CachedPresence? lastActivePresence;
 
     for (final newPresence in sync.presence ?? []) {
       final cachedPresence = CachedPresence.fromMatrixEvent(newPresence);
@@ -1815,17 +1815,17 @@ class Client extends MatrixApi {
       onPresence.add(newPresence);
       onPresenceChanged.add(cachedPresence);
 
-      if (lowestLastActivePresence == null ||
+      if (lastActivePresence == null ||
           (cachedPresence.lastActiveTimestamp != null &&
-              lowestLastActivePresence.lastActiveTimestamp != null &&
+              lastActivePresence.lastActiveTimestamp != null &&
               cachedPresence.lastActiveTimestamp!
-                  .isBefore(lowestLastActivePresence.lastActiveTimestamp!))) {
-        lowestLastActivePresence = cachedPresence;
+                  .isAfter(lastActivePresence.lastActiveTimestamp!))) {
+        lastActivePresence = cachedPresence;
       }
     }
 
-    if (lowestLastActivePresence != null) {
-      onlatestPresenceChanged.add(lowestLastActivePresence);
+    if (lastActivePresence != null) {
+      onlatestPresenceChanged.add(lastActivePresence);
     }
 
     for (final newAccountData in sync.accountData ?? []) {
