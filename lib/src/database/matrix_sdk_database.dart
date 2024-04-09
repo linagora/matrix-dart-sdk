@@ -539,7 +539,7 @@ class MatrixSdkDatabase extends DatabaseApi with DatabaseFileStorage {
   }
 
   @override
-  Future<File?> getFileEntity(Uri mxcUri) async {
+  Future<File?> getFileEntity(String eventId, String fileName) async {
     return null;
   }
 
