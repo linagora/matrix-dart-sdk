@@ -221,6 +221,8 @@ class HtmlToText {
               href.toLowerCase().startsWith('matrix:')) {
             if (customTagName != null) {
               print('not null');
+              final test = customTagName(href, content);
+              print('test: $test');
               return customTagName(href, content);
             }
             return content;
