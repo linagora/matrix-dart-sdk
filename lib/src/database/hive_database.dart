@@ -1099,8 +1099,8 @@ class FamedlySdkHiveDatabase extends DatabaseApi with ZoneTransactionMixin {
   }
 
   @override
-  Future<void> storeFile(Uri mxcUri, Uint8List bytes, int time) async {
-    return;
+  Future<void> storeEventFile(String eventId, String fileName, Uint8List bytes, int time) async {
+    return ;
   }
 
   @override
@@ -1408,6 +1408,11 @@ class FamedlySdkHiveDatabase extends DatabaseApi with ZoneTransactionMixin {
   
   @override
   Future<File?> getFileEntity(String eventId, String fileName) {
+    throw UnimplementedError();
+  }
+  
+  @override
+  Future storeFile(Uri mxcUri, Uint8List bytes, int time) {
     throw UnimplementedError();
   }
 }

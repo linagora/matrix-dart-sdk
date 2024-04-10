@@ -112,6 +112,8 @@ abstract class DatabaseApi {
 
   Future storeFile(Uri mxcUri, Uint8List bytes, int time);
 
+  Future storeEventFile(String eventId, String fileName, Uint8List bytes, int time);
+
   Future storeSyncFilterId(
     String syncFilterId,
   );
