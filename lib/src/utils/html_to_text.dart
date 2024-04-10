@@ -220,6 +220,7 @@ class HtmlToText {
           if (href.toLowerCase().startsWith('https://matrix.to/#/') ||
               href.toLowerCase().startsWith('matrix:')) {
             if (customTagName != null) {
+              print('not null');
               return customTagName(href, content);
             }
             return content;
