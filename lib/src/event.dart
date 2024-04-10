@@ -776,6 +776,9 @@ class Event extends MatrixEvent {
     if (redacted) {
       return 'Removed by ${senderFromMemoryOrFallback.displayName ?? senderId}';
     }
+    if (customTagName != null) {
+      print('not null');
+    }
     final plaintext = customTagName != null
         ? content['format'] == 'org.matrix.custom.html'
             ? HtmlToText.convert(
