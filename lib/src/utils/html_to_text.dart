@@ -21,10 +21,12 @@ import 'package:html/dom.dart';
 import 'package:html/parser.dart';
 import 'package:html_unescape/html_unescape.dart';
 
+typedef CustomTagName = String Function(String? tagName);
+
 class HtmlToText {
   /// Convert an HTML string to a pseudo-markdown plain text representation, with
   /// `data-mx-spoiler` spans redacted
-  static String convert(String html) {
+  static String convert({required String html, CustomTagName? customTagName}) {
     // riot-web is notorious for creating bad reply fallback events from invalid messages which, if
     // not handled properly, can lead to impersonation. As such, we strip the entire `<mx-reply>` tags
     // here already, to prevent that from happening.
@@ -37,7 +39,11 @@ class HtmlToText {
         '');
 
     final opts = _ConvertOpts();
-    var reply = _walkNode(opts, parseFragment(renderHtml));
+    var reply = _walkNode(
+      opts: opts,
+      node: parseFragment(renderHtml),
+      customTagName: customTagName,
+    );
     reply = reply.replaceAll(RegExp(r'\s*$', multiLine: false), '');
     return reply;
   }
@@ -142,7 +148,7 @@ class HtmlToText {
                   !types.contains(child.localName!.toLowerCase())))) {
         continue;
       }
-      replies.add(_walkNode(opts, child));
+      replies.add(_walkNode(opts: opts, node: child));
     }
     return replies;
   }
@@ -172,7 +178,7 @@ class HtmlToText {
           reply[reply.length - 1] != '\n') {
         reply += '\n';
       }
-      reply += _walkNode(opts, child);
+      reply += _walkNode(opts: opts, node: child);
       if (thisTag.isNotEmpty) {
         lastTag = thisTag;
       }
@@ -180,7 +186,11 @@ class HtmlToText {
     return reply;
   }
 
-  static String _walkNode(_ConvertOpts opts, Node node) {
+  static String _walkNode({
+    required _ConvertOpts opts,
+    required Node node,
+    CustomTagName? customTagName,
+  }) {
     if (node is Text) {
       // ignore \n between single nodes
       return node.text == '\n' ? '' : node.text;
@@ -209,6 +219,9 @@ class HtmlToText {
           final content = _walkChildNodes(opts, node);
           if (href.toLowerCase().startsWith('https://matrix.to/#/') ||
               href.toLowerCase().startsWith('matrix:')) {
+            if (customTagName != null) {
+              return customTagName(tag);
+            }
             return content;
           }
           return '🔗$content';

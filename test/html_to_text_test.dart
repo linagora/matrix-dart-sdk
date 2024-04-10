@@ -95,7 +95,7 @@ void main() {
     };
     for (final entry in testMap.entries) {
       test(entry.key, () async {
-        expect(HtmlToText.convert(entry.key), entry.value);
+        expect(HtmlToText.convert(html: entry.key), entry.value);
       });
     }
   });
