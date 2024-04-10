@@ -314,7 +314,7 @@ class Event extends MatrixEvent {
   /// Use this to get a plain-text representation of the event, stripping things
   /// like spoilers and thelike. Useful for plain text notifications.
   String get plaintextBody => content['format'] == 'org.matrix.custom.html'
-      ? HtmlToText.convert(formattedText)
+      ? HtmlToText.convert(html: formattedText)
       : body;
 
   /// Returns a list of [Receipt] instances for this event.
@@ -672,7 +672,9 @@ class Event extends MatrixEvent {
       bool hideReply = false,
       bool hideEdit = false,
       bool plaintextBody = false,
-      bool removeMarkdown = false}) async {
+      bool removeMarkdown = false,
+      bool removeBreakLine = false,
+      CustomTagName? customTagName}) async {
     if (redacted) {
       await redactedBecause?.fetchSenderUser();
     }
@@ -689,7 +691,9 @@ class Event extends MatrixEvent {
         hideReply: hideReply,
         hideEdit: hideEdit,
         plaintextBody: plaintextBody,
-        removeMarkdown: removeMarkdown);
+        removeMarkdown: removeMarkdown,
+        removeBreakLine: removeBreakLine,
+        customTagName: customTagName);
   }
 
   @Deprecated('Use calcLocalizedBody or calcLocalizedBodyFallback')
@@ -698,13 +702,17 @@ class Event extends MatrixEvent {
           bool hideReply = false,
           bool hideEdit = false,
           bool plaintextBody = false,
-          bool removeMarkdown = false}) =>
+          bool removeMarkdown = false,
+          bool removeBreakLine = false,
+          CustomTagName? customTagName}) =>
       calcLocalizedBodyFallback(i18n,
           withSenderNamePrefix: withSenderNamePrefix,
           hideReply: hideReply,
           hideEdit: hideEdit,
           plaintextBody: plaintextBody,
-          removeMarkdown: removeMarkdown);
+          removeMarkdown: removeMarkdown,
+          removeBreakLine: removeBreakLine,
+          customTagName: customTagName);
 
   /// Works similar to `calcLocalizedBody()` but does not wait for the sender
   /// user to be fetched. If it is not in the cache it will just use the
@@ -716,7 +724,9 @@ class Event extends MatrixEvent {
       bool hideReply = false,
       bool hideEdit = false,
       bool plaintextBody = false,
-      bool removeMarkdown = false}) {
+      bool removeMarkdown = false,
+      bool removeBreakLine = false,
+      CustomTagName? customTagName}) {
     if (redacted) {
       return i18n.removedBy(this);
     }
@@ -726,6 +736,8 @@ class Event extends MatrixEvent {
       hideEdit: hideEdit,
       plaintextBody: plaintextBody,
       removeMarkdown: removeMarkdown,
+      removeBreakLine: removeBreakLine,
+      customTagName: customTagName,
     );
 
     final callback = EventLocalizations.localizationsMap[type];
@@ -748,11 +760,14 @@ class Event extends MatrixEvent {
   }
 
   /// Calculating the body of an event regardless of localization.
-  String calcUnlocalizedBody(
-      {bool hideReply = false,
-      bool hideEdit = false,
-      bool plaintextBody = false,
-      bool removeMarkdown = false}) {
+  String calcUnlocalizedBody({
+    bool hideReply = false,
+    bool hideEdit = false,
+    bool plaintextBody = false,
+    bool removeMarkdown = false,
+    bool removeBreakLine = false,
+    CustomTagName? customTagName,
+  }) {
     if (redacted) {
       return 'Removed by ${senderFromMemoryOrFallback.displayName ?? senderId}';
     }
@@ -769,7 +784,9 @@ class Event extends MatrixEvent {
       if (plaintextBody && newContent['format'] == 'org.matrix.custom.html') {
         htmlMessage = true;
         body = HtmlToText.convert(
-            newContent.tryGet<String>('formatted_body') ?? formattedText);
+          html: newContent.tryGet<String>('formatted_body') ?? formattedText,
+          customTagName: customTagName,
+        );
       } else {
         htmlMessage = false;
         body = newContent.tryGet<String>('body') ?? body;
