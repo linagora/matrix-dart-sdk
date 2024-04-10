@@ -776,7 +776,15 @@ class Event extends MatrixEvent {
     if (redacted) {
       return 'Removed by ${senderFromMemoryOrFallback.displayName ?? senderId}';
     }
-    var body = plaintextBody ? this.plaintextBody : this.body;
+    final plaintext = customTagName != null
+        ? content['format'] == 'org.matrix.custom.html'
+            ? HtmlToText.convert(
+                html: formattedText,
+                customTagName: customTagName,
+              )
+            : this.body
+        : this.plaintextBody;
+    var body = plaintextBody ? plaintext : this.body;
 
     // we need to know if the message is an html message to be able to determine
     // if we need to strip the reply fallback.
