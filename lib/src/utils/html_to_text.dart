@@ -21,7 +21,7 @@ import 'package:html/dom.dart';
 import 'package:html/parser.dart';
 import 'package:html_unescape/html_unescape.dart';
 
-typedef CustomTagName = String Function(String tagName);
+typedef CustomTagName = String Function(String url, String content);
 
 class HtmlToText {
   /// Convert an HTML string to a pseudo-markdown plain text representation, with
@@ -220,7 +220,7 @@ class HtmlToText {
           if (href.toLowerCase().startsWith('https://matrix.to/#/') ||
               href.toLowerCase().startsWith('matrix:')) {
             if (customTagName != null) {
-              return customTagName(href);
+              return customTagName(href, content);
             }
             return content;
           }
