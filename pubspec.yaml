@@ -3,6 +3,7 @@ description: Matrix Dart SDK
 version: 0.22.6
 homepage: https://famedly.com
 repository: https://github.com/famedly/matrix-dart-sdk.git
+public_to: none
 
 environment:
   sdk: ">=3.0.0 <4.0.0"
@@ -26,7 +27,10 @@ dependencies:
   markdown: ^7.1.1
   json_annotation: ^4.7.0
   json_serializable: ^6.5.4
-  matrix_api_lite: ^1.7.0
+  matrix_api_lite:
+    git:
+      url: https://github.com/sherlockvn/dart_matrix_api_lite.git
+      ref: release/v1.17.3
   mime: ^1.0.0
   olm: ^2.0.2
   random_string: ^2.3.1
