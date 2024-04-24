@@ -4,6 +4,7 @@ version: 2.0.1
 homepage: https://famedly.com
 repository: https://github.com/famedly/matrix-dart-sdk.git
 issue_tracker: https://github.com/famedly/matrix-dart-sdk/issues
+publish_to: none
 
 environment:
   sdk: ">=3.0.0 <4.0.0"
@@ -23,6 +24,10 @@ dependencies:
   js_interop: ^0.0.1
   json_annotation: ^4.7.0
   markdown: ^7.1.1
+  matrix_api_lite:
+    git:
+      url: https://github.com/linagora/dart_matrix_api_lite.git
+      ref: main
   mime: ">=1.0.0 <3.0.0"
   path: ^1.9.1
   random_string: ^2.3.1
