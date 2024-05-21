@@ -42,7 +42,7 @@ extension MatrixIdExtension on String {
     }
     // all other matrix IDs have to have a domain
     final parts = _getParts();
-    // if the localpart starts with an @, localpart must not be empty
+    // if the localpart starts with an @, checks if the user id is valid
     if (substring(0, 1) == '@') {
       return _matchesUserIdRegExp(this);
     }
