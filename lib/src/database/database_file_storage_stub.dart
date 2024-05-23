@@ -10,7 +10,7 @@ mixin DatabaseFileStorage {
     return;
   }
 
-  Future<Uint8List?> getFile(Uri mxcUri) async {
+  Future<Uint8List?> getFile(String eventId, String fileName) async {
     return null;
   }
 

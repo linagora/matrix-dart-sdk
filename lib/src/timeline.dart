@@ -692,7 +692,7 @@ class Timeline {
         rethrow;
       }
     }
-    yield found;
+    return;
   }
 }
 

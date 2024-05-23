@@ -18,7 +18,9 @@
 
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 import 'dart:math';
+import 'dart:typed_data';
 
 import 'package:sqflite_common/sqflite.dart';
 
@@ -29,7 +31,6 @@ import 'package:matrix/encryption/utils/stored_inbound_group_session.dart';
 import 'package:matrix/matrix.dart';
 import 'package:matrix/src/utils/copy_map.dart';
 import 'package:matrix/src/utils/queued_to_device_event.dart';
-import 'package:matrix/src/utils/run_benchmarked.dart';
 
 import 'package:matrix/src/database/indexeddb_box.dart'
     if (dart.library.io) 'package:matrix/src/database/sqflite_box.dart';
@@ -326,7 +327,7 @@ class MatrixSdkDatabase extends DatabaseApi with DatabaseFileStorage {
   }
 
   @override
-  Future<void> clear() => _collection.clear();
+  Future<void> clear({bool supportDeleteCollections = false}) => _collection.clear();
 
   @override
   Future<void> clearCache() => transaction(() async {
@@ -1444,7 +1445,7 @@ class MatrixSdkDatabase extends DatabaseApi with DatabaseFileStorage {
   }
 
   @override
-  Future<String> exportDump() async {
+  Future<String> exportDump({bool supportDeleteCollections = false}) async {
     final dataMap = {
       _clientBoxName: await _clientBox.getAllValues(),
       _accountDataBoxName: await _accountDataBox.getAllValues(),
@@ -1479,7 +1480,7 @@ class MatrixSdkDatabase extends DatabaseApi with DatabaseFileStorage {
   }
 
   @override
-  Future<bool> importDump(String export) async {
+  Future<bool> importDump(String export, {bool supportDeleteCollections = false}) async {
     try {
       await clear();
       await open();
@@ -1613,4 +1614,16 @@ class MatrixSdkDatabase extends DatabaseApi with DatabaseFileStorage {
         name,
         sqfliteFactory ?? idbFactory,
       );
+
+  @override
+  Future<File?> getFileEntity(String eventId, String fileName) {
+    // TODO: implement getFileEntity
+    throw UnimplementedError();
+  }
+
+  @override
+  Future storeEventFile(String eventId, String fileName, Uint8List bytes, int time) {
+    // TODO: implement storeEventFile
+    throw UnimplementedError();
+  }
 }
