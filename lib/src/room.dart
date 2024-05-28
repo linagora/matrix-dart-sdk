@@ -2130,7 +2130,7 @@ class Room {
       : setSpaceChild(roomId, via: const []);
 
   @override
-  bool operator ==(dynamic other) => (other is Room && other.id == id);
+  bool operator ==(Object other) => (other is Room && other.id == id);
 
   @override
   int get hashCode => Object.hashAll([id]);
