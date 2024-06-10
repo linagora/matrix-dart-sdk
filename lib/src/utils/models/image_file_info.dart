@@ -6,6 +6,7 @@ class ImageFileInfo extends FileInfo {
     super.filePath,
     super.fileSize, {
       super.readStream,
+      super.customMimeType,
       this.width,
       this.height,
     }
