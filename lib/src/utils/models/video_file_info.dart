@@ -16,6 +16,7 @@ class VideoFileInfo extends FileInfo {
     super.filePath,
     super.fileSize, {
     super.readStream,
+    super.customMimeType,
     required this.imagePlaceholderBytes,
     this.width,
     this.height,

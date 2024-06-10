@@ -9,12 +9,14 @@ class FileInfo with EquatableMixin {
   final String filePath;
   final int fileSize;
   final Stream<List<int>>? readStream;
+  final String? customMimeType;
 
   FileInfo(
     this.fileName,
     this.filePath,
     this.fileSize, {
     this.readStream,
+    this.customMimeType,
   });
 
   factory FileInfo.empty() {
@@ -22,9 +24,8 @@ class FileInfo with EquatableMixin {
   }
 
   String get mimeType =>
-      lookupMimeType(filePath) ??
-      lookupMimeType(fileName) ??
-      'application/octet-stream';
+      customMimeType ?? lookupMimeType(filePath) ?? lookupMimeType(fileName) ?? 'application/octet-stream';
+
 
   Map<String, dynamic> get metadata => ({
         'mimetype': mimeType,
@@ -39,6 +40,7 @@ class FileInfo with EquatableMixin {
         file.size,
         width: file.info['w'],
         height: file.info['h'],
+        customMimeType: file.mimeType,
       );
     } else if (file.msgType == MessageTypes.Video) {
       return VideoFileInfo(
@@ -51,9 +53,10 @@ class FileInfo with EquatableMixin {
         duration: file.info['duration'] != null && file.info['duration'] is int
             ? Duration(milliseconds: file.info['duration'])
             : null,
+        customMimeType: file.mimeType,
       );
     }
-    return FileInfo(file.name, file.filePath ?? '', file.size);
+    return FileInfo(file.name, file.filePath ?? '', file.size, customMimeType: file.mimeType,);
   }
 
   @override
