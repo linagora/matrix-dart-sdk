@@ -24,9 +24,11 @@ class CachedPresence {
   String? statusMsg;
   bool? currentlyActive;
   String userid;
+  String? avatarUrl;
+  String? displayName;
 
   CachedPresence(this.presence, int? lastActiveAgo, this.statusMsg,
-      this.currentlyActive, this.userid) {
+      this.currentlyActive, this.userid, this.avatarUrl, this.displayName) {
     if (lastActiveAgo != null) {
       lastActiveTimestamp =
           DateTime.now().subtract(Duration(milliseconds: lastActiveAgo));
@@ -39,11 +41,13 @@ class CachedPresence {
             event.presence.lastActiveAgo,
             event.presence.statusMsg,
             event.presence.currentlyActive,
-            event.senderId);
+            event.senderId,
+            event.presence.avatarUrl,
+            event.presence.displayname);
 
   CachedPresence.fromPresenceResponse(GetPresenceResponse event, String userid)
       : this(event.presence, event.lastActiveAgo, event.statusMsg,
-            event.currentlyActive, userid);
+            event.currentlyActive, userid, event.avatarUrl, event.displayname);
 
   CachedPresence.neverSeen(this.userid) : presence = PresenceType.offline;
 
@@ -57,6 +61,8 @@ class CachedPresence {
           DateTime.now().difference(lastActiveTimestamp!).inMilliseconds;
     }
     if (statusMsg != null) content['status_msg'] = statusMsg!;
+    if (avatarUrl != null) content['avatar_url'] = avatarUrl!;
+    if (displayName != null) content['displayname'] = displayName!;
 
     final json = {
       'content': content,
