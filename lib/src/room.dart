@@ -783,6 +783,7 @@ class Room {
     String? editEventId,
     String? threadRootEventId,
     String? threadLastEventId,
+    DateTime? sentDate,
   }) async {
     // Create new transaction id
     final String messageID;
@@ -854,7 +855,6 @@ class Room {
         content['formatted_body'] = '* ${content['formatted_body']}';
       }
     }
-    final sentDate = DateTime.now();
     final syncUpdate = SyncUpdate(
       nextBatch: '',
       rooms: RoomsUpdate(
@@ -867,7 +867,7 @@ class Room {
                   type: type,
                   eventId: messageID,
                   senderId: client.userID!,
-                  originServerTs: sentDate,
+                  originServerTs: sentDate ?? DateTime.now(),
                   unsigned: {
                     messageSendingStatusKey: EventStatus.sending.intValue,
                     'transaction_id': messageID,
