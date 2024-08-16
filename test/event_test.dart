@@ -19,7 +19,6 @@
 import 'dart:convert';
 import 'dart:typed_data';
 
-import 'package:olm/olm.dart' as olm;
 import 'package:test/test.dart';
 
 import 'package:matrix/encryption.dart';
@@ -241,7 +240,8 @@ void main() {
           'room_id': '1234',
           'sender': '@example:example.org',
           'type': 'm.room.redaction',
-          'unsigned': {'age': 1234}
+          'unsigned': {'age': 1234},
+          'status': 1,
         };
         final redactedBecause = Event.fromJson(redactionEventJson, room);
         final event = Event.fromJson(redactJsonObj, room);
@@ -256,12 +256,12 @@ void main() {
 
     test('remove', () async {
       final event = Event.fromJson(
-          jsonObj, Room(id: '1234', client: Client('testclient')));
-      final removed1 = await event.remove();
+        jsonObj,
+        Room(id: '1234', client: Client('testclient')),
+      );
+      expect(() async => await event.cancelSend(), throwsException);
       event.status = EventStatus.sending;
-      final removed2 = await event.remove();
-      expect(removed1, false);
-      expect(removed2, true);
+      await event.cancelSend();
     });
 
     test('sendAgain', () async {
@@ -1273,8 +1273,8 @@ void main() {
       final THUMBNAIL_BUFF = Uint8List.fromList([2]);
       Future<Uint8List> downloadCallback(Uri uri) async {
         return {
-          '/_matrix/media/v3/download/example.org/file': FILE_BUFF,
-          '/_matrix/media/v3/download/example.org/thumb': THUMBNAIL_BUFF,
+          '/_matrix/client/v1/media/download/example.org/file': FILE_BUFF,
+          '/_matrix/client/v1/media/download/example.org/thumb': THUMBNAIL_BUFF,
         }[uri.path]!;
       }
 
@@ -1329,22 +1329,23 @@ void main() {
           'mxc://example.org/file');
       expect(event.attachmentOrThumbnailMxcUrl(getThumbnail: true).toString(),
           'mxc://example.org/thumb');
-      expect(event.getAttachmentUrl().toString(),
-          'https://fakeserver.notexisting/_matrix/media/v3/download/example.org/file');
-      expect(event.getAttachmentUrl(getThumbnail: true).toString(),
-          'https://fakeserver.notexisting/_matrix/media/v3/thumbnail/example.org/file?width=800&height=800&method=scale&animated=false');
-      expect(event.getAttachmentUrl(useThumbnailMxcUrl: true).toString(),
-          'https://fakeserver.notexisting/_matrix/media/v3/download/example.org/thumb');
+      expect((await event.getAttachmentUri()).toString(),
+          'https://fakeserver.notexisting/_matrix/client/v1/media/download/example.org/file');
+      expect((await event.getAttachmentUri(getThumbnail: true)).toString(),
+          'https://fakeserver.notexisting/_matrix/client/v1/media/thumbnail/example.org/file?width=800&height=800&method=scale&animated=false');
       expect(
-          event
-              .getAttachmentUrl(getThumbnail: true, useThumbnailMxcUrl: true)
-              .toString(),
-          'https://fakeserver.notexisting/_matrix/media/v3/thumbnail/example.org/thumb?width=800&height=800&method=scale&animated=false');
+          (await event.getAttachmentUri(useThumbnailMxcUrl: true)).toString(),
+          'https://fakeserver.notexisting/_matrix/client/v1/media/download/example.org/thumb');
       expect(
-          event
-              .getAttachmentUrl(getThumbnail: true, minNoThumbSize: 9000000)
+          (await event.getAttachmentUri(
+                  getThumbnail: true, useThumbnailMxcUrl: true))
               .toString(),
-          'https://fakeserver.notexisting/_matrix/media/v3/download/example.org/file');
+          'https://fakeserver.notexisting/_matrix/client/v1/media/thumbnail/example.org/thumb?width=800&height=800&method=scale&animated=false');
+      expect(
+          (await event.getAttachmentUri(
+                  getThumbnail: true, minNoThumbSize: 9000000))
+              .toString(),
+          'https://fakeserver.notexisting/_matrix/client/v1/media/download/example.org/file');
 
       buffer = await event.downloadAndDecryptAttachment(
           downloadCallback: downloadCallback);
@@ -1354,116 +1355,125 @@ void main() {
           getThumbnail: true, downloadCallback: downloadCallback);
       expect(buffer.bytes, THUMBNAIL_BUFF);
     });
-    test('encrypted attachments', () async {
-      if (!olmEnabled) return;
+    test(
+      'encrypted attachments',
+      () async {
+        final FILE_BUFF_ENC =
+            Uint8List.fromList([0x3B, 0x6B, 0xB2, 0x8C, 0xAF]);
+        final FILE_BUFF_DEC =
+            Uint8List.fromList([0x74, 0x65, 0x73, 0x74, 0x0A]);
+        final THUMB_BUFF_ENC =
+            Uint8List.fromList([0x55, 0xD7, 0xEB, 0x72, 0x05, 0x13]);
+        final THUMB_BUFF_DEC =
+            Uint8List.fromList([0x74, 0x68, 0x75, 0x6D, 0x62, 0x0A]);
+        Future<Uint8List> downloadCallback(Uri uri) async {
+          return {
+            '/_matrix/client/v1/media/download/example.com/file': FILE_BUFF_ENC,
+            '/_matrix/client/v1/media/download/example.com/thumb':
+                THUMB_BUFF_ENC,
+          }[uri.path]!;
+        }
 
-      final FILE_BUFF_ENC = Uint8List.fromList([0x3B, 0x6B, 0xB2, 0x8C, 0xAF]);
-      final FILE_BUFF_DEC = Uint8List.fromList([0x74, 0x65, 0x73, 0x74, 0x0A]);
-      final THUMB_BUFF_ENC =
-          Uint8List.fromList([0x55, 0xD7, 0xEB, 0x72, 0x05, 0x13]);
-      final THUMB_BUFF_DEC =
-          Uint8List.fromList([0x74, 0x68, 0x75, 0x6D, 0x62, 0x0A]);
-      Future<Uint8List> downloadCallback(Uri uri) async {
-        return {
-          '/_matrix/media/v3/download/example.com/file': FILE_BUFF_ENC,
-          '/_matrix/media/v3/download/example.com/thumb': THUMB_BUFF_ENC,
-        }[uri.path]!;
-      }
-
-      final room = Room(id: '!localpart:server.abc', client: await getClient());
-      var event = Event.fromJson({
-        'type': EventTypes.Message,
-        'content': {
-          'body': 'image',
-          'msgtype': 'm.image',
-          'file': {
-            'v': 'v2',
-            'key': {
-              'alg': 'A256CTR',
-              'ext': true,
-              'k': '7aPRNIDPeUAUqD6SPR3vVX5W9liyMG98NexVJ9udnCc',
-              'key_ops': ['encrypt', 'decrypt'],
-              'kty': 'oct'
-            },
-            'iv': 'Wdsf+tnOHIoAAAAAAAAAAA',
-            'hashes': {'sha256': 'WgC7fw2alBC5t+xDx+PFlZxfFJXtIstQCg+j0WDaXxE'},
-            'url': 'mxc://example.com/file',
-            'mimetype': 'text/plain'
-          },
-        },
-        'event_id': '\$edit2',
-        'sender': '@alice:example.org',
-      }, room);
-      var buffer = await event.downloadAndDecryptAttachment(
-          downloadCallback: downloadCallback);
-      expect(buffer.bytes, FILE_BUFF_DEC);
-
-      event = Event.fromJson({
-        'type': EventTypes.Message,
-        'content': {
-          'body': 'image',
-          'msgtype': 'm.image',
-          'file': {
-            'v': 'v2',
-            'key': {
-              'alg': 'A256CTR',
-              'ext': true,
-              'k': '7aPRNIDPeUAUqD6SPR3vVX5W9liyMG98NexVJ9udnCc',
-              'key_ops': ['encrypt', 'decrypt'],
-              'kty': 'oct'
-            },
-            'iv': 'Wdsf+tnOHIoAAAAAAAAAAA',
-            'hashes': {'sha256': 'WgC7fw2alBC5t+xDx+PFlZxfFJXtIstQCg+j0WDaXxE'},
-            'url': 'mxc://example.com/file',
-            'mimetype': 'text/plain'
-          },
-          'info': {
-            'thumbnail_file': {
+        final room =
+            Room(id: '!localpart:server.abc', client: await getClient());
+        var event = Event.fromJson({
+          'type': EventTypes.Message,
+          'content': {
+            'body': 'image',
+            'msgtype': 'm.image',
+            'file': {
               'v': 'v2',
               'key': {
                 'alg': 'A256CTR',
                 'ext': true,
-                'k': 'TmF-rZYetZbxpL5yjDPE21UALQJcpEE6X-nvUDD5rA0',
+                'k': '7aPRNIDPeUAUqD6SPR3vVX5W9liyMG98NexVJ9udnCc',
                 'key_ops': ['encrypt', 'decrypt'],
                 'kty': 'oct'
               },
-              'iv': '41ZqNRZSLFUAAAAAAAAAAA',
+              'iv': 'Wdsf+tnOHIoAAAAAAAAAAA',
               'hashes': {
-                'sha256': 'zccOwXiOTAYhGXyk0Fra7CRreBF6itjiCKdd+ov8mO4'
+                'sha256': 'WgC7fw2alBC5t+xDx+PFlZxfFJXtIstQCg+j0WDaXxE'
               },
-              'url': 'mxc://example.com/thumb',
+              'url': 'mxc://example.com/file',
               'mimetype': 'text/plain'
-            }
+            },
           },
-        },
-        'event_id': '\$edit2',
-        'sender': '@alice:example.org',
-      }, room);
-      expect(event.hasAttachment, true);
-      expect(event.hasThumbnail, true);
-      expect(event.isAttachmentEncrypted, true);
-      expect(event.isThumbnailEncrypted, true);
-      expect(event.attachmentMimetype, 'text/plain');
-      expect(event.thumbnailMimetype, 'text/plain');
-      expect(event.attachmentMxcUrl.toString(), 'mxc://example.com/file');
-      expect(event.thumbnailMxcUrl.toString(), 'mxc://example.com/thumb');
-      buffer = await event.downloadAndDecryptAttachment(
-          downloadCallback: downloadCallback);
-      expect(buffer.bytes, FILE_BUFF_DEC);
+          'event_id': '\$edit2',
+          'sender': '@alice:example.org',
+        }, room);
+        var buffer = await event.downloadAndDecryptAttachment(
+            downloadCallback: downloadCallback);
+        expect(buffer.bytes, FILE_BUFF_DEC);
 
-      buffer = await event.downloadAndDecryptAttachment(
-          getThumbnail: true, downloadCallback: downloadCallback);
-      expect(buffer.bytes, THUMB_BUFF_DEC);
+        event = Event.fromJson({
+          'type': EventTypes.Message,
+          'content': {
+            'body': 'image',
+            'msgtype': 'm.image',
+            'file': {
+              'v': 'v2',
+              'key': {
+                'alg': 'A256CTR',
+                'ext': true,
+                'k': '7aPRNIDPeUAUqD6SPR3vVX5W9liyMG98NexVJ9udnCc',
+                'key_ops': ['encrypt', 'decrypt'],
+                'kty': 'oct'
+              },
+              'iv': 'Wdsf+tnOHIoAAAAAAAAAAA',
+              'hashes': {
+                'sha256': 'WgC7fw2alBC5t+xDx+PFlZxfFJXtIstQCg+j0WDaXxE'
+              },
+              'url': 'mxc://example.com/file',
+              'mimetype': 'text/plain'
+            },
+            'info': {
+              'thumbnail_file': {
+                'v': 'v2',
+                'key': {
+                  'alg': 'A256CTR',
+                  'ext': true,
+                  'k': 'TmF-rZYetZbxpL5yjDPE21UALQJcpEE6X-nvUDD5rA0',
+                  'key_ops': ['encrypt', 'decrypt'],
+                  'kty': 'oct'
+                },
+                'iv': '41ZqNRZSLFUAAAAAAAAAAA',
+                'hashes': {
+                  'sha256': 'zccOwXiOTAYhGXyk0Fra7CRreBF6itjiCKdd+ov8mO4'
+                },
+                'url': 'mxc://example.com/thumb',
+                'mimetype': 'text/plain'
+              }
+            },
+          },
+          'event_id': '\$edit2',
+          'sender': '@alice:example.org',
+        }, room);
+        expect(event.hasAttachment, true);
+        expect(event.hasThumbnail, true);
+        expect(event.isAttachmentEncrypted, true);
+        expect(event.isThumbnailEncrypted, true);
+        expect(event.attachmentMimetype, 'text/plain');
+        expect(event.thumbnailMimetype, 'text/plain');
+        expect(event.attachmentMxcUrl.toString(), 'mxc://example.com/file');
+        expect(event.thumbnailMxcUrl.toString(), 'mxc://example.com/thumb');
+        buffer = await event.downloadAndDecryptAttachment(
+            downloadCallback: downloadCallback);
+        expect(buffer.bytes, FILE_BUFF_DEC);
 
-      await room.client.dispose(closeDatabase: true);
-    });
+        buffer = await event.downloadAndDecryptAttachment(
+            getThumbnail: true, downloadCallback: downloadCallback);
+        expect(buffer.bytes, THUMB_BUFF_DEC);
+
+        await room.client.dispose(closeDatabase: true);
+      },
+    );
     test('downloadAndDecryptAttachment store', () async {
       final FILE_BUFF = Uint8List.fromList([0]);
       var serverHits = 0;
       Future<Uint8List> downloadCallback(Uri uri) async {
         serverHits++;
         return {
-          '/_matrix/media/v3/download/example.org/newfile': FILE_BUFF,
+          '/_matrix/client/v1/media/download/example.org/newfile': FILE_BUFF,
         }[uri.path]!;
       }
 
@@ -1498,6 +1508,93 @@ void main() {
 
       await room.client.dispose(closeDatabase: true);
     });
+
+    test('downloadAndDecryptAttachment store only', () async {
+      final FILE_BUFF = Uint8List.fromList([0]);
+      var serverHits = 0;
+      Future<Uint8List> downloadCallback(Uri uri) async {
+        serverHits++;
+        return {
+          '/_matrix/client/v1/media/download/example.org/newfile': FILE_BUFF,
+        }[uri.path]!;
+      }
+
+      await client.checkHomeserver(Uri.parse('https://fakeserver.notexisting'),
+          checkWellKnown: false);
+      final room = Room(id: '!localpart:server.abc', client: await getClient());
+      final event = Event.fromJson({
+        'type': EventTypes.Message,
+        'content': {
+          'body': 'image',
+          'msgtype': 'm.image',
+          'url': 'mxc://example.org/newfile',
+          'info': {
+            'size': 5,
+          },
+        },
+        'event_id': '\$edit2',
+        'sender': '@alice:example.org',
+      }, room);
+
+      var buffer = await event.downloadAndDecryptAttachment(
+          downloadCallback: downloadCallback);
+      expect(await event.isAttachmentInLocalStore(),
+          event.room.client.database?.supportsFileStoring);
+      expect(buffer.bytes, FILE_BUFF);
+      expect(serverHits, 1);
+
+      if (event.room.client.database?.supportsFileStoring == true) {
+        buffer = await event.downloadAndDecryptAttachment(
+            downloadCallback: downloadCallback, fromLocalStoreOnly: true);
+        expect(buffer.bytes, FILE_BUFF);
+      } else {
+        expect(
+            () async => await event.downloadAndDecryptAttachment(
+                downloadCallback: downloadCallback, fromLocalStoreOnly: true),
+            throwsA(anything));
+      }
+      expect(serverHits, 1);
+
+      await room.client.dispose(closeDatabase: true);
+    });
+
+    test('downloadAndDecryptAttachment store only without file', () async {
+      final FILE_BUFF = Uint8List.fromList([0]);
+      var serverHits = 0;
+      Future<Uint8List> downloadCallback(Uri uri) async {
+        serverHits++;
+        return {
+          '/_matrix/client/v1/media/download/example.org/newfile': FILE_BUFF,
+        }[uri.path]!;
+      }
+
+      await client.checkHomeserver(Uri.parse('https://fakeserver.notexisting'),
+          checkWellKnown: false);
+      final room = Room(id: '!localpart:server.abc', client: await getClient());
+      final event = Event.fromJson({
+        'type': EventTypes.Message,
+        'content': {
+          'body': 'image',
+          'msgtype': 'm.image',
+          'url': 'mxc://example.org/newfile',
+          'info': {
+            'size': 5,
+          },
+        },
+        'event_id': '\$edit2',
+        'sender': '@alice:example.org',
+      }, room);
+
+      expect(
+          () async => await event.downloadAndDecryptAttachment(
+              downloadCallback: downloadCallback, fromLocalStoreOnly: true),
+          throwsA(anything));
+
+      expect(serverHits, 0);
+
+      await room.client.dispose(closeDatabase: true);
+    });
+
     test('emote detection', () async {
       var event = Event.fromJson({
         'type': EventTypes.Message,
