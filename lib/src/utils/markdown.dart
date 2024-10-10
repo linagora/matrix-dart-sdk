@@ -218,18 +218,14 @@ String markdown(
   );
 
   var ret = markdownToHtml(
-    text.replaceNewlines(),
-    extensionSet: ExtensionSet.gitHubFlavored,
-    blockSyntaxes: [
-      BlockLatexSyntax(),
-    ],
+    text,
+    extensionSet: ExtensionSet.commonMark,
     inlineSyntaxes: [
       StrikethroughSyntax(),
       SpoilerSyntax(),
       EmoteSyntax(getEmotePacks),
       PillSyntax(),
       MentionSyntax(getMention),
-      InlineLatexSyntax(),
     ],
   );
 
