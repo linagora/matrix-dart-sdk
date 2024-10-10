@@ -213,6 +213,8 @@ String markdown(
   var ret = markdownToHtml(
     text,
     extensionSet: ExtensionSet.commonMark,
+    withDefaultBlockSyntaxes: false,
+    withDefaultInlineSyntaxes: false,
     inlineSyntaxes: [
       StrikethroughSyntax(),
       SpoilerSyntax(),
