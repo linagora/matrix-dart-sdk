@@ -214,6 +214,8 @@ String markdown(
   var ret = markdownToHtml(
     text.replaceNewlines(),
     extensionSet: ExtensionSet.gitHubFlavored,
+    withDefaultBlockSyntaxes: false,
+    withDefaultInlineSyntaxes: false,
     inlineSyntaxes: [
       StrikethroughSyntax(),
       SpoilerSyntax(),
