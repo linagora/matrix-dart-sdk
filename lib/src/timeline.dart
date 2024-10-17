@@ -30,6 +30,7 @@ import 'package:matrix/src/models/timeline_chunk.dart';
 
 class Timeline {
   final Room room;
+
   List<Event> get events => chunk.events;
 
   /// Map of event ID to map of type to set of aggregated events
@@ -79,14 +80,20 @@ class Timeline {
     return room.prev_batch != null && events.last.type != EventTypes.RoomCreate;
   }
 
-  Future<void> requestHistory(
-      {int historyCount = Room.defaultHistoryCount}) async {
+  Future<void> requestHistory({
+    int historyCount = Room.defaultHistoryCount,
+    StateFilter? filter,
+  }) async {
     if (isRequestingHistory) {
       return;
     }
 
     isRequestingHistory = true;
-    await _requestEvents(direction: Direction.b, historyCount: historyCount);
+    await _requestEvents(
+      direction: Direction.b,
+      historyCount: historyCount,
+      filter: filter,
+    );
     isRequestingHistory = false;
   }
 
@@ -104,9 +111,11 @@ class Timeline {
     isRequestingFuture = false;
   }
 
-  Future<void> _requestEvents(
-      {int historyCount = Room.defaultHistoryCount,
-      required Direction direction}) async {
+  Future<void> _requestEvents({
+    int historyCount = Room.defaultHistoryCount,
+    required Direction direction,
+    StateFilter? filter,
+  }) async {
     onUpdate?.call();
 
     try {
@@ -151,6 +160,7 @@ class Timeline {
           await getRoomEvents(
             historyCount: historyCount,
             direction: direction,
+            filter: filter,
           );
         } else {
           await room.requestHistory(
@@ -173,15 +183,19 @@ class Timeline {
   /// be received maximum. When the request is answered, [onHistoryReceived] will be triggered **before**
   /// the historical events will be published in the onEvent stream.
   /// Returns the actual count of received timeline events.
-  Future<int> getRoomEvents(
-      {int historyCount = Room.defaultHistoryCount,
-      direction = Direction.b}) async {
+  Future<int> getRoomEvents({
+    int historyCount = Room.defaultHistoryCount,
+    direction = Direction.b,
+    StateFilter? filter,
+  }) async {
     final resp = await room.client.getRoomEvents(
       room.id,
       direction,
       from: direction == Direction.b ? chunk.prevBatch : chunk.nextBatch,
       limit: historyCount,
-      filter: jsonEncode(StateFilter(lazyLoadMembers: true).toJson()),
+      filter: jsonEncode(
+        (filter ?? StateFilter(lazyLoadMembers: true)).toJson(),
+      ),
     );
 
     if (resp.end == null) {
