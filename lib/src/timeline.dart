@@ -166,6 +166,7 @@ class Timeline {
           await room.requestHistory(
             historyCount: historyCount,
             direction: direction,
+            filter: filter,
             onHistoryReceived: () {
               _collectHistoryUpdates = true;
             },
