@@ -286,17 +286,13 @@ extension on String {
     });
   }
 
-  String convertLinebreaksToBr(
-    String tagName, {
-    bool exclude = false,
-    String replaceWith = '<br/>',
-  }) {
-    final parts = split('$tagName>');
-    var convertLinebreaks = exclude;
+  String convertLinebreaksToBr() {
+    final parts = split('pre>');
+    var convertLinebreaks = true;
     for (var i = 0; i < parts.length; i++) {
-      if (convertLinebreaks) parts[i] = parts[i].replaceAll('\n', replaceWith);
+      if (convertLinebreaks) parts[i] = parts[i].replaceAll('\n', '<br/>');
       convertLinebreaks = !convertLinebreaks;
     }
-    return parts.join('$tagName>');
+    return parts.join('pre>');
   }
 }

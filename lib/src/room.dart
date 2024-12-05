@@ -700,15 +700,20 @@ class Room {
       'body': message,
     };
     if (parseMarkdown) {
-      final html = markdown(
-        event['body'],
-        getEmotePacks: () => getImagePacksFlat(ImagePackUsage.emoticon),
-        getMention: getMention,
-        convertLinebreaks: client.convertLinebreaksInFormatting,
-      );
+      final html = markdown(event['body'],
+          getEmotePacks: () => getImagePacksFlat(ImagePackUsage.emoticon),
+          getMention: getMention);
+
+      final formatText = event['body']
+          .toString()
+          .trim()
+          .replaceAll(RegExp(r'(<br />)+$'), '')
+          .convertLinebreaksToBr()
+          .replaceAll(RegExp(r'<br />\n?'), '\n');
+
       // if the decoded html is the same as the body, there is no need in sending a formatted message
       if (HtmlUnescape().convert(html.replaceAll(RegExp(r'<br />\n?'), '\n')) !=
-          event['body']) {
+          formatText) {
         event['format'] = 'org.matrix.custom.html';
         event['formatted_body'] = html;
       }
