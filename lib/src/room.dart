@@ -646,14 +646,13 @@ class Room {
           threadRootEventId: threadRootEventId,
           threadLastEventId: threadLastEventId);
     }
-    
+
     final eventContent = getEventContentFromMsgText(
       message: message,
       parseMarkdown: parseMarkdown,
       msgtype: msgtype,
     );
-    return sendEvent(
-        eventContent,
+    return sendEvent(eventContent,
         txid: txid,
         inReplyTo: inReplyTo,
         editEventId: editEventId,
@@ -674,9 +673,17 @@ class Room {
       final html = markdown(event['body'],
           getEmotePacks: () => getImagePacksFlat(ImagePackUsage.emoticon),
           getMention: getMention);
+
+      final formatText = event['body']
+          .toString()
+          .trim()
+          .replaceAll(RegExp(r'(<br />)+$'), '')
+          .convertLinebreaksToBr()
+          .replaceAll(RegExp(r'<br />\n?'), '\n');
+
       // if the decoded html is the same as the body, there is no need in sending a formatted message
       if (HtmlUnescape().convert(html.replaceAll(RegExp(r'<br />\n?'), '\n')) !=
-          event['body']) {
+          formatText) {
         event['format'] = 'org.matrix.custom.html';
         event['formatted_body'] = html;
       }

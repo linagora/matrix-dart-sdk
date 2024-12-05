@@ -263,7 +263,7 @@ String markdown(
   return ret;
 }
 
-extension on String {
+extension StringExtension on String {
   String convertLinebreaksToBr() {
     final parts = split('pre>');
     var convertLinebreaks = true;
