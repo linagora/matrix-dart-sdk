@@ -800,9 +800,17 @@ class Room {
         getMention: getMention,
         convertLinebreaks: client.convertLinebreaksInFormatting,
       );
+
+      final formatText = event['body']
+          .toString()
+          .trim()
+          .replaceAll(RegExp(r'(<br />)+$'), '')
+          .convertLinebreaksToBr('pre')
+          .replaceAll(RegExp(r'<br />\n?'), '\n');
+
       // if the decoded html is the same as the body, there is no need in sending a formatted message
       if (HtmlUnescape().convert(html.replaceAll(RegExp(r'<br />\n?'), '\n')) !=
-          event['body']) {
+          formatText) {
         event['format'] = 'org.matrix.custom.html';
         event['formatted_body'] = html;
       }

@@ -267,7 +267,7 @@ String markdown(
   return ret;
 }
 
-extension on String {
+extension StringExtension on String {
   String replaceNewlines() {
     // RegEx for at least 3 following \n
     final regExp = RegExp(r'(\n{3,})');
