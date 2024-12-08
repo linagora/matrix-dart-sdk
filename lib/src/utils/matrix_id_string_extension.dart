@@ -56,7 +56,8 @@ extension MatrixIdExtension on String {
 
   bool _matchesUserIdRegExp(String text) {
     final globalRegExp = RegExp(
-        r'^@([a-z0-9.=_\-\+]+):((?:[a-zA-Z0-9\-]+\.)*[a-zA-Z]{2,}|\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}|\[(?:[0-9a-fA-F:.]+)\])(?::\d{1,5})?$');
+      r'^@([a-z0-9.=_\-\+]+):((?:[a-zA-Z0-9\-]+\.)*[a-zA-Z]{2,}|\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}|\[(?:[0-9a-fA-F:.]+)\])(?::\d{1,5})?$',
+    );
 
     return globalRegExp.hasMatch(text);
   }
