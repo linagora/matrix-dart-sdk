@@ -1148,7 +1148,7 @@ class Room {
       direction,
       from: prev_batch,
       limit: historyCount,
-      filter: jsonEncode(filter.toJson()),
+      filter: jsonEncode((filter ?? StateFilter(lazyLoadMembers: true)).toJson()),
     );
 
     if (onHistoryReceived != null) onHistoryReceived();

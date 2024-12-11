@@ -30,6 +30,7 @@ import 'package:matrix/src/models/timeline_chunk.dart';
 
 class Timeline {
   final Room room;
+
   List<Event> get events => chunk.events;
 
   /// Map of event ID to map of type to set of aggregated events
@@ -235,7 +236,9 @@ class Timeline {
       direction,
       from: direction == Direction.b ? chunk.prevBatch : chunk.nextBatch,
       limit: historyCount,
-      filter: jsonEncode(filter.toJson()),
+      filter: jsonEncode(
+        (filter ?? StateFilter(lazyLoadMembers: true)).toJson(),
+      ),
     );
 
     if (resp.end == null) {
