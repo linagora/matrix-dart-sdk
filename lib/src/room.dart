@@ -1037,10 +1037,12 @@ class Room {
   /// be received maximum. When the request is answered, [onHistoryReceived] will be triggered **before**
   /// the historical events will be published in the onEvent stream.
   /// Returns the actual count of received timeline events.
-  Future<int> requestHistory(
-      {int historyCount = defaultHistoryCount,
-      void Function()? onHistoryReceived,
-      direction = Direction.b}) async {
+  Future<int> requestHistory({
+    int historyCount = defaultHistoryCount,
+    void Function()? onHistoryReceived,
+    direction = Direction.b,
+    StateFilter? filter,
+  }) async {
     final prev_batch = this.prev_batch;
 
     final storeInDatabase = !isArchived;
@@ -1053,7 +1055,7 @@ class Room {
       direction,
       from: prev_batch,
       limit: historyCount,
-      filter: jsonEncode(StateFilter(lazyLoadMembers: true).toJson()),
+      filter: jsonEncode((filter ?? StateFilter(lazyLoadMembers: true)).toJson()),
     );
 
     if (onHistoryReceived != null) onHistoryReceived();
