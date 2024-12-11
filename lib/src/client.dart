@@ -1597,7 +1597,7 @@ class Client extends MatrixApi {
       );
 
       /// Timeout of 0, so that we don't see a spinner for 30 seconds.
-      final syncFuture = _sync(timeout: Duration.zero);
+      final syncFuture = _sync();
       if (waitForFirstSync) {
         await syncFuture;
       }
