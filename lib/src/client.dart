@@ -2194,7 +2194,7 @@ class Client extends MatrixApi {
       );
 
       /// Timeout of 0, so that we don't see a spinner for 30 seconds.
-      firstSyncReceived = _sync(timeout: Duration.zero);
+      firstSyncReceived = _sync();
       if (waitForFirstSync) {
         onInitStateChanged?.call(InitState.waitingForFirstSync);
         await firstSyncReceived;
