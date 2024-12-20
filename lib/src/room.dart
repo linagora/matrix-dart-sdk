@@ -1363,10 +1363,14 @@ class Room {
   /// [[Membership.join, Membership.invite, Membership.knock]]
   /// Set [cache] to `false` if you do not want to cache the users in memory
   /// for this session which is highly recommended for large public rooms.
-  Future<List<User>> requestParticipants(
-      [List<Membership> membershipFilter = displayMembershipsFilter,
-      bool suppressWarning = false,
-      bool cache = true]) async {
+  Future<List<User>> requestParticipants([
+    List<Membership> membershipFilter = displayMembershipsFilter,
+    bool suppressWarning = false,
+    bool cache = true,
+    String? at,
+    Membership? membership,
+    Membership? notMembership,
+  ]) async {
     if (!participantListComplete && partial) {
       // we aren't fully loaded, maybe the users are in the database
       final users = await client.database?.getUsers(this) ?? [];
@@ -1385,13 +1389,20 @@ class Room {
       membershipFilter,
       suppressWarning,
       cache,
+      at,
+      membership,
+      notMembership,
     );
   }
 
-  Future<List<User>> requestParticipantsFromServer(
-      [List<Membership> membershipFilter = displayMembershipsFilter,
-      bool suppressWarning = false,
-      bool cache = true]) async {
+  Future<List<User>> requestParticipantsFromServer([
+    List<Membership> membershipFilter = displayMembershipsFilter,
+    bool suppressWarning = false,
+    bool cache = true,
+    String? at,
+    Membership? membership,
+    Membership? notMembership,
+  ]) async {
     final memberCount = summary.mJoinedMemberCount;
     if (!suppressWarning && cache && memberCount != null && memberCount > 100) {
       Logs().w('''
@@ -1401,16 +1412,19 @@ class Room {
       ''');
     }
 
-    final matrixEvents = await client.getMembersByRoom(id);
+    final matrixEvents = await client.getMembersByRoom(
+      id,
+      at: at,
+      membership: membership,
+      notMembership: notMembership,
+    );
     final users = matrixEvents
             ?.map((e) => Event.fromMatrixEvent(e, this).asUser)
             .toList() ??
         [];
 
     if (cache) {
-      for (final user in users) {
-        setState(user); // at *least* cache this in-memory
-      }
+      await client.database?.storeUsers(users, this);
     }
 
     _requestedParticipants = cache;
