@@ -1337,12 +1337,13 @@ class Room {
   /// List `membershipFilter` defines with what membership do you want the
   /// participants, default set to
   /// [[Membership.join, Membership.invite, Membership.knock]]
-  List<User> getParticipants(
-      [List<Membership> membershipFilter = const [
-        Membership.join,
-        Membership.invite,
-        Membership.knock,
-      ]]) {
+  List<User> getParticipants({
+    List<Membership> membershipFilter = const [
+      Membership.join,
+      Membership.invite,
+      Membership.knock,
+    ],
+  }) {
     final members = states[EventTypes.RoomMember];
     if (members != null) {
       return members.entries
@@ -1363,14 +1364,14 @@ class Room {
   /// [[Membership.join, Membership.invite, Membership.knock]]
   /// Set [cache] to `false` if you do not want to cache the users in memory
   /// for this session which is highly recommended for large public rooms.
-  Future<List<User>> requestParticipants([
+  Future<List<User>> requestParticipants({
     List<Membership> membershipFilter = displayMembershipsFilter,
     bool suppressWarning = false,
     bool cache = true,
     String? at,
     Membership? membership,
     Membership? notMembership,
-  ]) async {
+  }) async {
     if (!participantListComplete && partial) {
       // we aren't fully loaded, maybe the users are in the database
       final users = await client.database?.getUsers(this) ?? [];
@@ -1382,16 +1383,16 @@ class Room {
     // Do not request users from the server if we have already done it
     // in this session or have a complete list locally.
     if (_requestedParticipants || participantListComplete) {
-      return getParticipants(membershipFilter);
+      return getParticipants(membershipFilter: membershipFilter);
     }
 
     return await requestParticipantsFromServer(
-      membershipFilter,
-      suppressWarning,
-      cache,
-      at,
-      membership,
-      notMembership,
+      membershipFilter: membershipFilter,
+      suppressWarning: suppressWarning,
+      cache: cache,
+      at: at,
+      membership: membership,
+      notMembership: notMembership,
     );
   }
 
