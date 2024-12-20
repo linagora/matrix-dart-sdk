@@ -1395,14 +1395,14 @@ class Room {
     );
   }
 
-  Future<List<User>> requestParticipantsFromServer([
+  Future<List<User>> requestParticipantsFromServer({
     List<Membership> membershipFilter = displayMembershipsFilter,
     bool suppressWarning = false,
     bool cache = true,
     String? at,
     Membership? membership,
     Membership? notMembership,
-  ]) async {
+  }) async {
     final memberCount = summary.mJoinedMemberCount;
     if (!suppressWarning && cache && memberCount != null && memberCount > 100) {
       Logs().w('''
