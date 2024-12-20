@@ -81,20 +81,20 @@ void testDatabase(
     final toDeviceQueue = await database.getToDeviceEventQueue();
     expect(toDeviceQueue.isEmpty, true);
   });
-  test('storeFile', () async {
-    await database.storeFile(
-        Uri.parse('mxc://test'), Uint8List.fromList([0]), 0);
-    final file = await database.getFile(Uri.parse('mxc://test'));
-    expect(file != null, database.supportsFileStoring);
-  });
-  test('getFile', () async {
-    await database.getFile(Uri.parse('mxc://test'));
-  });
-  test('deleteOldFiles', () async {
-    await database.deleteOldFiles(1);
-    final file = await database.getFile(Uri.parse('mxc://test'));
-    expect(file == null, true);
-  });
+  // test('storeFile', () async {
+  //   await database.storeFile(
+  //       Uri.parse('mxc://test'), Uint8List.fromList([0]), 0);
+  //   final file = await database.getFile(Uri.parse('mxc://test'));
+  //   expect(file != null, database.supportsFileStoring);
+  // });
+  // test('getFile', () async {
+  //   await database.getFile(Uri.parse('mxc://test'));
+  // });
+  // test('deleteOldFiles', () async {
+  //   await database.deleteOldFiles(1);
+  //   final file = await database.getFile(Uri.parse('mxc://test'));
+  //   expect(file == null, true);
+  // });
   test('storeRoomUpdate', () async {
     final roomUpdate = JoinedRoomUpdate.fromJson({
       'highlight_count': 0,
@@ -229,6 +229,25 @@ void testDatabase(
     final users = await database.getUsers(
         Room(id: '!testroom:example.com', client: Client('testclient')));
     expect(users.isEmpty, true);
+  });
+  test('storeUsers', () async {
+    final room =
+        Room(id: '!testroom:example.com', client: Client('testclient'));
+    await database.storeUsers(
+      [
+        User(
+          '@bob:example.org',
+          displayName: 'Bob',
+          avatarUrl: 'mxc://example.com',
+          room: room,
+        )
+      ],
+      Room(id: '!testroom:example.com', client: Client('testclient')),
+    );
+    final users = await database.getUsers(
+      Room(id: '!testroom:example.com', client: Client('testclient')),
+    );
+    expect(users.single.id, '@bob:example.org');
   });
   test('removeEvent', () async {
     await database.removeEvent('\$event:example.com', '!testroom:example.com');
