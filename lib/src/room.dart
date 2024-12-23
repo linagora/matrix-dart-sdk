@@ -1372,7 +1372,7 @@ class Room {
     Membership? membership,
     Membership? notMembership,
   }) async {
-    if (!participantListComplete && partial) {
+    if (!participantListComplete || partial) {
       // we aren't fully loaded, maybe the users are in the database
       final users = await client.database?.getUsers(this) ?? [];
       for (final user in users) {
