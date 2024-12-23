@@ -1425,6 +1425,9 @@ class Room {
         [];
 
     if (cache) {
+      for (final user in users) {
+        setState(user);
+      }
       await client.database?.storeUsers(users, this);
     }
 
