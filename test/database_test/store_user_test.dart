@@ -13,6 +13,10 @@ void main() {
       room = Room(id: '!testroom:example.com', client: Client('testclient'));
     });
 
+    tearDown(() async {
+      await database.close();
+    });
+
     test(
       'Give a user\n'
       'When store user is called\n'
@@ -76,12 +80,7 @@ void main() {
 
         final storedUser = await database.getUsers(room);
 
-        expect(storedUser.length, 5);
-
-        expect(
-          storedUser.where((user) => user.id == '@bob:example.org').isNotEmpty,
-          true,
-        );
+        expect(storedUser.length, 4);
 
         expect(
           storedUser
@@ -137,7 +136,7 @@ void main() {
 
         final storedUser = await database.getUsers(room);
 
-        expect(storedUser.length, 6);
+        expect(storedUser.length, 1);
 
         expect(
           storedUser.where((user) => user.id == '@bob_5:example.org').length,
@@ -154,14 +153,8 @@ void main() {
       () async {
         final getUserInitial = await database.getUsers(room);
 
-        expect(getUserInitial.length, 6);
+        expect(getUserInitial.length, 0);
 
-        expect(
-          getUserInitial
-              .where((user) => user.id == '@bob_5:example.org')
-              .length,
-          1,
-        );
         final users = [
           User(
             '@bob_5:example.org',
@@ -175,7 +168,7 @@ void main() {
 
         final storedUser = await database.getUsers(room);
 
-        expect(storedUser.length, 6);
+        expect(storedUser.length, 1);
 
         expect(
           storedUser.where((user) => user.id == '@bob_5:example.org').length,

@@ -1428,7 +1428,11 @@ class Room {
       for (final user in users) {
         setState(user);
       }
-      await client.database?.storeUsers(users, this);
+      try {
+        await client.database?.storeUsers(users, this);
+      } catch (e) {
+        Logs().w('Room::requestParticipantsFromServer: Unable to store users in the database', e);
+      }
     }
 
     _requestedParticipants = cache;
