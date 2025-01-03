@@ -746,6 +746,15 @@ class FamedlySdkHiveDatabase extends DatabaseApi {
   }
 
   @override
+  Future<void> storeUsers(List<User> users, Room room) async {
+    for (final user in users) {
+      final key = MultiKey(room.id, user.id).toString();
+      await _roomMembersBox.put(key, user.toJson());
+    }
+    return Future.value();
+  }
+
+  @override
   Future<void> insertClient(
       String name,
       String homeserverUrl,

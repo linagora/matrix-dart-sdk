@@ -230,6 +230,25 @@ void testDatabase(
         Room(id: '!testroom:example.com', client: Client('testclient')));
     expect(users.isEmpty, true);
   });
+  test('storeUsers', () async {
+    final room =
+        Room(id: '!testroom:example.com', client: Client('testclient'));
+    await database.storeUsers(
+      [
+        User(
+          '@bob:example.org',
+          displayName: 'Bob',
+          avatarUrl: 'mxc://example.com',
+          room: room,
+        )
+      ],
+      Room(id: '!testroom:example.com', client: Client('testclient')),
+    );
+    final users = await database.getUsers(
+      Room(id: '!testroom:example.com', client: Client('testclient')),
+    );
+    expect(users.single.id, '@bob:example.org');
+  });
   test('removeEvent', () async {
     await database.removeEvent('\$event:example.com', '!testroom:example.com');
     final event = await database.getEventById('\$event:example.com',

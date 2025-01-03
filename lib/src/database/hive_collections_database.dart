@@ -813,6 +813,15 @@ class HiveCollectionsDatabase extends DatabaseApi {
   }
 
   @override
+  Future<void> storeUsers(List<User> users, Room room) async {
+    for (final user in users) {
+      final key = TupleKey(room.id, user.id).toString();
+      await _roomMembersBox.put(key, user.toJson());
+    }
+    return;
+  }
+
+  @override
   Future<int> insertClient(
       String name,
       String homeserverUrl,

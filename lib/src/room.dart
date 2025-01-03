@@ -1337,12 +1337,13 @@ class Room {
   /// List `membershipFilter` defines with what membership do you want the
   /// participants, default set to
   /// [[Membership.join, Membership.invite, Membership.knock]]
-  List<User> getParticipants(
-      [List<Membership> membershipFilter = const [
-        Membership.join,
-        Membership.invite,
-        Membership.knock,
-      ]]) {
+  List<User> getParticipants({
+    List<Membership> membershipFilter = const [
+      Membership.join,
+      Membership.invite,
+      Membership.knock,
+    ],
+  }) {
     final members = states[EventTypes.RoomMember];
     if (members != null) {
       return members.entries
@@ -1363,11 +1364,15 @@ class Room {
   /// [[Membership.join, Membership.invite, Membership.knock]]
   /// Set [cache] to `false` if you do not want to cache the users in memory
   /// for this session which is highly recommended for large public rooms.
-  Future<List<User>> requestParticipants(
-      [List<Membership> membershipFilter = displayMembershipsFilter,
-      bool suppressWarning = false,
-      bool cache = true]) async {
-    if (!participantListComplete && partial) {
+  Future<List<User>> requestParticipants({
+    List<Membership> membershipFilter = displayMembershipsFilter,
+    bool suppressWarning = false,
+    bool cache = true,
+    String? at,
+    Membership? membership,
+    Membership? notMembership,
+  }) async {
+    if (!participantListComplete || partial) {
       // we aren't fully loaded, maybe the users are in the database
       final users = await client.database?.getUsers(this) ?? [];
       for (final user in users) {
@@ -1378,20 +1383,27 @@ class Room {
     // Do not request users from the server if we have already done it
     // in this session or have a complete list locally.
     if (_requestedParticipants || participantListComplete) {
-      return getParticipants(membershipFilter);
+      return getParticipants(membershipFilter: membershipFilter);
     }
 
     return await requestParticipantsFromServer(
-      membershipFilter,
-      suppressWarning,
-      cache,
+      membershipFilter: membershipFilter,
+      suppressWarning: suppressWarning,
+      cache: cache,
+      at: at,
+      membership: membership,
+      notMembership: notMembership,
     );
   }
 
-  Future<List<User>> requestParticipantsFromServer(
-      [List<Membership> membershipFilter = displayMembershipsFilter,
-      bool suppressWarning = false,
-      bool cache = true]) async {
+  Future<List<User>> requestParticipantsFromServer({
+    List<Membership> membershipFilter = displayMembershipsFilter,
+    bool suppressWarning = false,
+    bool cache = true,
+    String? at,
+    Membership? membership,
+    Membership? notMembership,
+  }) async {
     final memberCount = summary.mJoinedMemberCount;
     if (!suppressWarning && cache && memberCount != null && memberCount > 100) {
       Logs().w('''
@@ -1401,7 +1413,12 @@ class Room {
       ''');
     }
 
-    final matrixEvents = await client.getMembersByRoom(id);
+    final matrixEvents = await client.getMembersByRoom(
+      id,
+      at: at,
+      membership: membership,
+      notMembership: notMembership,
+    );
     final users = matrixEvents
             ?.map((e) => Event.fromMatrixEvent(e, this).asUser)
             .toList() ??
@@ -1409,7 +1426,12 @@ class Room {
 
     if (cache) {
       for (final user in users) {
-        setState(user); // at *least* cache this in-memory
+        setState(user);
+      }
+      try {
+        await client.database?.storeUsers(users, this);
+      } catch (e) {
+        Logs().w('Room::requestParticipantsFromServer: Unable to store users in the database', e);
       }
     }
 
