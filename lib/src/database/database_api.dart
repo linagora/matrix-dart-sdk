@@ -111,6 +111,8 @@ abstract class DatabaseApi {
 
   Future<List<User>> getUsers(Room room);
 
+  Future<void> storeUsers(List<User> users, Room room);
+
   Future<List<Event>> getEventList(
     Room room, {
     int start = 0,
@@ -127,7 +129,9 @@ abstract class DatabaseApi {
 
   Future<Uint8List?> getFile(Uri mxcUri);
 
-  Future<Uint8List?> getFileFromEventId(String eventId, String fileName);
+  Future<Uint8List?> getFileFromEventId(String eventId, String fileName) async {
+    throw UnimplementedError();
+  }
 
   Future<File?> getFileEntity(String eventId, String fileName);
 

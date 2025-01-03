@@ -18,10 +18,10 @@
 
 import 'dart:convert';
 
+import 'package:matrix/matrix.dart';
 import 'package:test/test.dart';
 import 'package:vodozemac/vodozemac.dart' as vod;
 
-import 'package:matrix/matrix.dart';
 import './fake_client.dart';
 
 void main() async {
@@ -358,7 +358,9 @@ void main() async {
         ),
       );
       expect(
-        dmRoom.getParticipants([Membership.invite, Membership.join]).length,
+        dmRoom.getParticipants(
+          membershipFilter: [Membership.invite, Membership.join],
+        ).length,
         2,
       );
       dmRoom.partial = true;
@@ -422,7 +424,9 @@ void main() async {
         ),
       );
       expect(
-        dmRoom2.getParticipants([Membership.invite, Membership.join]).length,
+        dmRoom2.getParticipants(
+          membershipFilter: [Membership.invite, Membership.join],
+        ).length,
         2,
       );
       dmRoom2.partial = true;
@@ -481,7 +485,9 @@ void main() async {
         ),
       );
       expect(
-        dmRoom.getParticipants([Membership.invite, Membership.join]).length,
+        dmRoom.getParticipants(
+          membershipFilter: [Membership.invite, Membership.join],
+        ).length,
         3,
       );
       dmRoom2.partial = true;

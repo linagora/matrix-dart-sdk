@@ -21,9 +21,9 @@ import 'dart:convert';
 import 'dart:math';
 import 'dart:typed_data';
 
+import 'package:matrix/matrix.dart';
 import 'package:test/test.dart';
 
-import 'package:matrix/matrix.dart';
 import 'fake_client.dart';
 
 Future<void> updateLastEvent(Event event) {
@@ -676,9 +676,13 @@ void main() {
       expect(oldParticipants.length, 4);
       room.summary.mJoinedMemberCount = 5;
       final fetchedParticipants = await room.requestParticipants(
-        const [Membership.join, Membership.invite, Membership.knock],
-        true,
-        true,
+        membershipFilter: const [
+          Membership.join,
+          Membership.invite,
+          Membership.knock,
+        ],
+        suppressWarning: true,
+        cache: true,
       );
       final newParticipants = room.getParticipants();
       expect(oldParticipants.length < newParticipants.length, true);

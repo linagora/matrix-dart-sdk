@@ -20,9 +20,9 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:typed_data';
 
+import 'package:matrix/matrix.dart';
 import 'package:test/test.dart';
 
-import 'package:matrix/matrix.dart';
 import 'fake_database.dart';
 
 String createLargeString(String character, int desiredSize) {
@@ -449,6 +449,33 @@ void main() {
           ),
         );
         expect(users.isEmpty, true);
+      });
+      test('storeUsers', () async {
+        final room = Room(
+          id: '!testroom:example.com',
+          client: Client('testclient', database: database),
+        );
+        await database.storeUsers(
+          [
+            User(
+              '@bob:example.org',
+              displayName: 'Bob',
+              avatarUrl: 'mxc://example.com',
+              room: room,
+            ),
+          ],
+          Room(
+            id: '!testroom:example.com',
+            client: Client('testclient', database: database),
+          ),
+        );
+        final users = await database.getUsers(
+          Room(
+            id: '!testroom:example.com',
+            client: Client('testclient', database: database),
+          ),
+        );
+        expect(users.single.id, '@bob:example.org');
       });
       test('removeEvent', () async {
         await database.removeEvent(
