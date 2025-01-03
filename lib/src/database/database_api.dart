@@ -109,6 +109,8 @@ abstract class DatabaseApi {
 
   Future<List<User>> getUsers(Room room);
 
+  Future<void> storeUsers(List<User> users, Room room);
+
   Future<List<Event>> getEventList(
     Room room, {
     int start = 0,

@@ -382,7 +382,11 @@ class PushruleEvaluator {
   }
 
   EvaluatedPushRuleAction match(Event event) {
-    final memberCount = event.room.getParticipants([Membership.join]).length;
+    final memberCount = event.room.getParticipants(
+      membershipFilter: [
+        Membership.join,
+      ],
+    ).length;
     final displayName = event.room
         .unsafeGetUserFromMemoryOrFallback(event.room.client.userID!)
         .displayName;
