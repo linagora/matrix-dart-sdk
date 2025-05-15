@@ -77,8 +77,7 @@ class Client extends MatrixApi {
     _database = db;
   }
 
-  Encryption? get encryption => _encryption;
-  Encryption? _encryption;
+  Encryption? encryption;
 
   Set<KeyVerificationMethod> verificationMethods;
 
@@ -87,6 +86,8 @@ class Client extends MatrixApi {
   Set<String> roomPreviewLastEvents;
 
   Set<String> supportedLoginTypes;
+
+  int? sendMessageTimeoutSeconds;
 
   bool requestHistoryOnLimitedTimeline;
 
@@ -2116,7 +2117,7 @@ class Client extends MatrixApi {
         }
         // we aren't logged in
         await encryption?.dispose();
-        _encryption = null;
+        encryption = null;
         onLoginStateChanged.add(LoginState.loggedOut);
         Logs().i('User is not logged in.');
         _initLock = false;
@@ -2127,11 +2128,11 @@ class Client extends MatrixApi {
       await encryption?.dispose();
       if (vod.isInitialized()) {
         try {
-          _encryption = Encryption(client: this);
+          encryption = Encryption(client: this);
         } catch (e) {
           Logs().e('Error initializing encryption $e');
           await encryption?.dispose();
-          _encryption = null;
+          encryption = null;
         }
       }
       onInitStateChanged?.call(InitState.settingUpEncryption);
@@ -2260,7 +2261,7 @@ class Client extends MatrixApi {
     _rooms = [];
     _eventsPendingDecryption.clear();
     await encryption?.dispose();
-    _encryption = null;
+    encryption = null;
     onLoginStateChanged.add(LoginState.loggedOut);
   }
 
@@ -3924,7 +3925,7 @@ class Client extends MatrixApi {
     _disposed = true;
     await abortSync();
     await encryption?.dispose();
-    _encryption = null;
+    encryption = null;
     try {
       if (closeDatabase) {
         await database
