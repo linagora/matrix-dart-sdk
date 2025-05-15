@@ -25,6 +25,8 @@ import 'dart:typed_data';
 import 'package:async/async.dart';
 import 'package:collection/collection.dart' show IterableExtension;
 import 'package:http/http.dart' as http;
+import 'package:http/http.dart';
+import 'package:matrix/src/utils/versions_comparator.dart';
 import 'package:mime/mime.dart';
 import 'package:olm/olm.dart' as olm;
 import 'package:random_string/random_string.dart';
@@ -35,14 +37,13 @@ import 'package:matrix/src/models/timeline_chunk.dart';
 import 'package:matrix/src/utils/cached_stream_controller.dart';
 import 'package:matrix/src/utils/compute_callback.dart';
 import 'package:matrix/src/utils/multilock.dart';
-import 'package:matrix/src/utils/run_benchmarked.dart';
 import 'package:matrix/src/utils/run_in_root.dart';
 import 'package:matrix/src/utils/sync_update_item_count.dart';
 import 'package:matrix/src/utils/try_get_push_rule.dart';
 
 typedef RoomSorter = int Function(Room a, Room b);
 
-enum LoginState { loggedIn, loggedOut, softLoggedOut }
+enum LoginState { loggedIn, loggedOut }
 
 extension TrailingSlash on Uri {
   Uri stripTrailingSlash() => path.endsWith('/')
@@ -68,8 +69,7 @@ class Client extends MatrixApi {
 
   DatabaseApi? get database => _database;
 
-  Encryption? get encryption => _encryption;
-  Encryption? _encryption;
+  Encryption? encryption;
 
   Set<KeyVerificationMethod> verificationMethods;
 
@@ -78,6 +78,8 @@ class Client extends MatrixApi {
   Set<String> roomPreviewLastEvents;
 
   Set<String> supportedLoginTypes;
+
+  int sendMessageTimeoutSeconds;
 
   bool requestHistoryOnLimitedTimeline;
 
@@ -1897,7 +1899,7 @@ class Client extends MatrixApi {
     final userID = this.userID;
     if (syncFilterId == null && userID != null) {
       final syncFilterId =
-          _syncFilterId = await defineFilter(userID, syncFilter);
+          this.syncFilterId = await defineFilter(userID, syncFilter);
       await database?.storeSyncFilterId(syncFilterId);
     }
     return;
