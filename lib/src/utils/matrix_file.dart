@@ -449,7 +449,8 @@ class MatrixVideoFile extends MatrixFile {
       super.sizeInBytes,
       this.width,
       this.height,
-      this.duration});
+      this.duration,
+  });
 
   @override
   String get msgType => 'm.video';
@@ -481,7 +482,8 @@ class MatrixAudioFile extends MatrixFile {
       super.filePath,
       super.readStream,
       super.sizeInBytes,
-      this.duration});
+      this.duration,
+  });
 
   @override
   String get msgType => 'm.audio';

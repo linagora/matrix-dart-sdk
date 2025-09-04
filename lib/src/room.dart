@@ -27,6 +27,7 @@ import 'package:html_unescape/html_unescape.dart';
 import 'package:matrix/matrix.dart';
 import 'package:matrix/src/models/timeline_chunk.dart';
 import 'package:matrix/src/utils/cached_stream_controller.dart';
+import 'package:matrix/src/utils/file_send_request_credentials.dart';
 import 'package:matrix/src/utils/markdown.dart';
 import 'package:matrix/src/utils/marked_unread.dart';
 import 'package:matrix/src/utils/room_enums.dart';
@@ -777,6 +778,248 @@ class Room {
       txid,
       sendMessageContent,
     );
+  }
+
+  /// Sends a [file] to this room after uploading it. Returns the mxc uri of
+  /// the uploaded file. If [waitUntilSent] is true, the future will wait until
+  /// the message event has received the server. Otherwise the future will only
+  /// wait until the file has been uploaded.
+  /// Optionally specify [extraContent] to tack on to the event.
+  ///
+  /// In case [file] is a [MatrixImageFile], [thumbnail] is automatically
+  /// computed unless it is explicitly provided.
+  /// Set [shrinkImageMaxDimension] to for example `1600` if you want to shrink
+  /// your image before sending. This is ignored if the File is not a
+  /// [MatrixImageFile].
+  /// Note: [file] must have its [MatrixFile.bytes] field set.
+  Future<String?> sendFileEvent(
+    MatrixFile file, {
+    String? txid,
+    Event? inReplyTo,
+    String? editEventId,
+    int? shrinkImageMaxDimension,
+    MatrixImageFile? thumbnail,
+    Map<String, dynamic>? extraContent,
+    String? threadRootEventId,
+    String? threadLastEventId,
+  }) async {
+    if (file.bytes == null || file.bytes!.isEmpty) {
+      throw Exception('Can not send empty file');
+    }
+
+    txid ??= client.generateUniqueTransactionId();
+    sendingFilePlaceholders[txid] = file;
+    if (thumbnail != null) {
+      sendingFileThumbnails[txid] = thumbnail;
+    }
+
+    // Create a fake Event object as a placeholder for the uploading file:
+    final syncUpdate = SyncUpdate(
+      nextBatch: '',
+      rooms: RoomsUpdate(
+        join: {
+          id: JoinedRoomUpdate(
+            timeline: TimelineUpdate(
+              events: [
+                MatrixEvent(
+                  content: {
+                    'msgtype': file.msgType,
+                    'body': file.name,
+                    'filename': file.name,
+                    'info': file.info,
+                    if (extraContent != null) ...extraContent,
+                  },
+                  type: EventTypes.Message,
+                  eventId: txid,
+                  senderId: client.userID!,
+                  originServerTs: DateTime.now(),
+                  unsigned: {
+                    messageSendingStatusKey: EventStatus.sending.intValue,
+                    'transaction_id': txid,
+                    ...FileSendRequestCredentials(
+                      inReplyTo: inReplyTo?.eventId,
+                      editEventId: editEventId,
+                      shrinkImageMaxDimension: shrinkImageMaxDimension,
+                      extraContent: extraContent,
+                    ).toJson(),
+                  },
+                ),
+              ],
+            ),
+          ),
+        },
+      ),
+    );
+    await _handleFakeSync(syncUpdate);
+
+    MatrixFile uploadFile = file; // ignore: omit_local_variable_types
+    // computing the thumbnail in case we can
+    if (file is MatrixImageFile &&
+        (thumbnail == null || shrinkImageMaxDimension != null)) {
+      syncUpdate.rooms!.join!.values.first.timeline!.events!.first
+              .unsigned![fileSendingStatusKey] =
+          FileSendingStatus.generatingThumbnail.name;
+      thumbnail ??= await file.generateThumbnail(
+        nativeImplementations: client.nativeImplementations,
+        customImageResizer: client.customImageResizer,
+      );
+      if (shrinkImageMaxDimension != null) {
+        file = await MatrixImageFile.shrink(
+          bytes: file.bytes!,
+          name: file.name,
+          maxDimension: shrinkImageMaxDimension,
+          customImageResizer: client.customImageResizer,
+          nativeImplementations: client.nativeImplementations,
+        );
+      }
+
+      if (thumbnail != null && file.size < thumbnail.size) {
+        thumbnail = null; // in this case, the thumbnail is not usefull
+      }
+    }
+
+    // Check media config of the server before sending the file. Stop if the
+    // Media config is unreachable or the file is bigger than the given maxsize.
+    try {
+      final mediaConfig = await client.getConfig();
+      final maxMediaSize = mediaConfig.mUploadSize;
+      if (maxMediaSize != null && maxMediaSize < file.bytes!.lengthInBytes) {
+        throw FileTooBigMatrixException(
+            file.bytes!.lengthInBytes, maxMediaSize);
+      }
+    } catch (e) {
+      Logs().d('Config error while sending file', e);
+      syncUpdate.rooms!.join!.values.first.timeline!.events!.first
+          .unsigned![messageSendingStatusKey] = EventStatus.error.intValue;
+      await _handleFakeSync(syncUpdate);
+      rethrow;
+    }
+
+    MatrixFile? uploadThumbnail =
+        thumbnail; // ignore: omit_local_variable_types
+    EncryptedFile? encryptedFile;
+    EncryptedFile? encryptedThumbnail;
+    if (encrypted && client.fileEncryptionEnabled) {
+      syncUpdate.rooms!.join!.values.first.timeline!.events!.first
+          .unsigned![fileSendingStatusKey] = FileSendingStatus.encrypting.name;
+      await _handleFakeSync(syncUpdate);
+      encryptedFile = await file.encrypt();
+      if (encryptedFile == null) {
+        syncUpdate.rooms!.join!.values.first.timeline!.events!.first
+            .unsigned![messageSendingStatusKey] = EventStatus.error.intValue;
+        await _handleFakeSync(syncUpdate);
+        throw Exception('File encryption failed');
+      }
+      uploadFile = encryptedFile.toMatrixFile();
+
+      if (thumbnail != null) {
+        encryptedThumbnail = await thumbnail.encrypt();
+        uploadThumbnail = encryptedThumbnail?.toMatrixFile();
+      }
+    }
+    Uri? uploadResp, thumbnailUploadResp;
+
+    final timeoutDate = DateTime.now().add(client.sendTimelineEventTimeout);
+
+    syncUpdate.rooms!.join!.values.first.timeline!.events!.first
+        .unsigned![fileSendingStatusKey] = FileSendingStatus.uploading.name;
+    while (uploadResp == null ||
+        (uploadThumbnail != null && thumbnailUploadResp == null)) {
+      try {
+        if (uploadFile.bytes == null || uploadFile.bytes!.isEmpty) {
+          throw Exception('Can not upload empty file');
+        }
+        uploadResp = await client.uploadContent(
+          uploadFile.bytes!,
+          filename: uploadFile.name,
+          contentType: uploadFile.mimeType,
+        );
+
+        if (uploadThumbnail != null && uploadThumbnail.bytes != null) {
+          thumbnailUploadResp = await client.uploadContent(
+            uploadThumbnail.bytes!,
+            filename: uploadThumbnail.name,
+            contentType: uploadThumbnail.mimeType,
+          );
+        } else {
+          thumbnailUploadResp = null;
+        }
+      } on MatrixException catch (_) {
+        syncUpdate.rooms!.join!.values.first.timeline!.events!.first
+            .unsigned![messageSendingStatusKey] = EventStatus.error.intValue;
+        await _handleFakeSync(syncUpdate);
+        rethrow;
+      } catch (_) {
+        if (DateTime.now().isAfter(timeoutDate)) {
+          syncUpdate.rooms!.join!.values.first.timeline!.events!.first
+              .unsigned![messageSendingStatusKey] = EventStatus.error.intValue;
+          await _handleFakeSync(syncUpdate);
+          rethrow;
+        }
+        Logs().v('Send File into room failed. Try again...');
+        await Future.delayed(Duration(seconds: 1));
+      }
+    }
+
+    // Send event
+    final content = <String, dynamic>{
+      'msgtype': file.msgType,
+      'body': file.name,
+      'filename': file.name,
+      if (encryptedFile == null) 'url': uploadResp.toString(),
+      if (encryptedFile != null)
+        'file': {
+          'url': uploadResp.toString(),
+          'mimetype': file.mimeType,
+          'v': 'v2',
+          'key': {
+            'alg': 'A256CTR',
+            'ext': true,
+            'k': encryptedFile.k,
+            'key_ops': ['encrypt', 'decrypt'],
+            'kty': 'oct',
+          },
+          'iv': encryptedFile.iv,
+          'hashes': {'sha256': encryptedFile.sha256},
+        },
+      'info': {
+        ...file.info,
+        if (thumbnail != null && encryptedThumbnail == null)
+          'thumbnail_url': thumbnailUploadResp.toString(),
+        if (thumbnail != null && encryptedThumbnail != null)
+          'thumbnail_file': {
+            'url': thumbnailUploadResp.toString(),
+            'mimetype': thumbnail.mimeType,
+            'v': 'v2',
+            'key': {
+              'alg': 'A256CTR',
+              'ext': true,
+              'k': encryptedThumbnail.k,
+              'key_ops': ['encrypt', 'decrypt'],
+              'kty': 'oct',
+            },
+            'iv': encryptedThumbnail.iv,
+            'hashes': {'sha256': encryptedThumbnail.sha256},
+          },
+        if (thumbnail != null) 'thumbnail_info': thumbnail.info,
+        if (thumbnail?.blurhash != null &&
+            file is MatrixImageFile &&
+            file.blurhash == null)
+          'xyz.amorgan.blurhash': thumbnail!.blurhash,
+      },
+      if (extraContent != null) ...extraContent,
+    };
+    final eventId = await sendEvent(
+      content,
+      txid: txid,
+      inReplyTo: inReplyTo,
+      editEventId: editEventId,
+      threadRootEventId: threadRootEventId,
+      threadLastEventId: threadLastEventId,
+    );
+    sendingFilePlaceholders.remove(txid);
+    sendingFileThumbnails.remove(txid);
+    return eventId;
   }
 
   String _stripBodyFallback(String body) {
