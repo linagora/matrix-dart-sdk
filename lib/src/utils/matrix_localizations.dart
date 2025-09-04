@@ -16,7 +16,7 @@
  *   along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-import 'package:matrix/matrix.dart';
+import 'package:matrix/src/utils/room_enums.dart';
 
 abstract class MatrixLocalizations {
   const MatrixLocalizations();

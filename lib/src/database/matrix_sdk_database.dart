@@ -20,6 +20,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:math';
+import 'dart:typed_data';
 
 import 'package:sqflite_common/sqflite.dart';
 
@@ -30,7 +31,6 @@ import 'package:matrix/encryption/utils/stored_inbound_group_session.dart';
 import 'package:matrix/matrix.dart';
 import 'package:matrix/src/utils/copy_map.dart';
 import 'package:matrix/src/utils/queued_to_device_event.dart';
-import 'package:matrix/src/utils/run_benchmarked.dart';
 
 import 'package:matrix/src/database/indexeddb_box.dart'
     if (dart.library.io) 'package:matrix/src/database/sqflite_box.dart';
@@ -534,8 +534,13 @@ class MatrixSdkDatabase extends DatabaseApi with DatabaseFileStorage {
       });
 
   @override
-  Future<Uint8List?> getFile(String eventId, String fileName) async {
+  Future<Uint8List?> getFile(Uri mxcUri) async {
     return null;
+  }
+
+  @override
+  Future<void> storeFileEntity(Uri mxcUri, File file, int time) async {
+    return;
   }
 
   @override
@@ -544,8 +549,9 @@ class MatrixSdkDatabase extends DatabaseApi with DatabaseFileStorage {
   }
 
   @override
-  Future<void> storeEventFile(String eventId, String fileName, Uint8List bytes, int time) async {
-    return ;
+  Future<void> storeEventFile(
+      String eventId, String fileName, Uint8List bytes, int time,) async {
+    return;
   }
 
   @override

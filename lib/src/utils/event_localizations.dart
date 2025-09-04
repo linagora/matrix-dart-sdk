@@ -15,11 +15,10 @@
  *   You should have received a copy of the GNU Affero General Public License
  *   along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
-
 import 'package:collection/collection.dart';
-
 import 'package:matrix/encryption.dart';
 import 'package:matrix/matrix.dart';
+import 'package:matrix/src/utils/room_enums.dart';
 
 abstract class EventLocalizations {
   // As we need to create the localized body off of a different set of parameters, we
@@ -126,12 +125,14 @@ abstract class EventLocalizations {
           String Function(Event event, MatrixLocalizations i18n, String body)?>
       localizationsMap = {
     EventTypes.Sticker: (event, i18n, body) => i18n.sentASticker(
-          event.senderFromMemoryOrFallback.calcDisplayname(i18n: i18n),
-        ),
-    EventTypes.Redaction: (event, i18n, body) => i18n.redactedAnEvent(event),
+      event.senderFromMemoryOrFallback.calcDisplayname(i18n: i18n),
+    ),
+    EventTypes.Redaction: (event, i18n, body) => i18n.redactedAnEvent(
+      event.senderFromMemoryOrFallback.calcDisplayname(),
+    ),
     EventTypes.RoomAliases: (event, i18n, body) => i18n.changedTheRoomAliases(
-          event.senderFromMemoryOrFallback.calcDisplayname(i18n: i18n),
-        ),
+      event.senderFromMemoryOrFallback.calcDisplayname(i18n: i18n),
+    ),
     EventTypes.RoomCanonicalAlias: (event, i18n, body) =>
         i18n.changedTheRoomInvitationLink(
           event.senderFromMemoryOrFallback.calcDisplayname(i18n: i18n),

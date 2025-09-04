@@ -261,9 +261,9 @@ String markdown(
       .replaceAll(RegExp(r'(<br />)+$'), '');
   if (convertLinebreaks) {
     // Only convert linebreaks which are not in <pre> blocks
-    ret = ret.convertLinebreaksToBr('p');
+    ret = ret.convertLinebreaksToBrForTag('p');
     // Delete other linebreaks except for pre blocks:
-    ret = ret.convertLinebreaksToBr('pre', exclude: true, replaceWith: '');
+    ret = ret.convertLinebreaksToBrForTag('pre', exclude: true, replaceWith: '');
   }
 
   if (stripPTags) {
@@ -273,7 +273,7 @@ String markdown(
   return ret;
 }
 
-extension on String {
+extension StringExt on String {
   String replaceNewlines() {
     // RegEx for at least 3 following \n
     final regExp = RegExp(r'(\n{3,})');
@@ -294,5 +294,19 @@ extension on String {
       convertLinebreaks = !convertLinebreaks;
     }
     return parts.join('pre>');
+  }
+
+  String convertLinebreaksToBrForTag(
+    String tagName, {
+    bool exclude = false,
+    String replaceWith = '<br/>',
+  }) {
+    final parts = split('$tagName>');
+    var convertLinebreaks = exclude;
+    for (var i = 0; i < parts.length; i++) {
+      if (convertLinebreaks) parts[i] = parts[i].replaceAll('\n', replaceWith);
+      convertLinebreaks = !convertLinebreaks;
+    }
+    return parts.join('$tagName>');
   }
 }

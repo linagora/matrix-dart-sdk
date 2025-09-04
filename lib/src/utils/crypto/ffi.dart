@@ -19,6 +19,8 @@
 import 'dart:ffi';
 import 'dart:io';
 
+import 'package:ffi/ffi.dart';
+
 final libcrypto = () {
   if (Platform.isIOS) {
     return DynamicLibrary.process();
@@ -161,32 +163,37 @@ final EVP_DigestInit_ex = libcrypto.lookupFunction<
   IntPtr Function(
     Pointer<NativeType> ctx,
     Pointer<NativeType> type,
-    Pointer<NativeType> engine),
+    Pointer<NativeType> engine,
+  ),
   int Function(
     Pointer<NativeType> ctx,
     Pointer<NativeType> type,
-    Pointer<NativeType> engine)>('EVP_DigestInit_ex');
+    Pointer<NativeType> engine,
+  )>('EVP_DigestInit_ex');
 
 final EVP_DigestUpdate = libcrypto.lookupFunction<
   IntPtr Function(
     Pointer<NativeType> ctx,
     Pointer<NativeType> d,
-    IntPtr cnt),
+    IntPtr cnt,
+  ),
   int Function(
     Pointer<NativeType> ctx,
     Pointer<NativeType> d,
-    int cnt)>('EVP_DigestUpdate');
+    int cnt,
+  )>('EVP_DigestUpdate');
 
 final EVP_DigestFinal_ex = libcrypto.lookupFunction<
   IntPtr Function(
     Pointer<NativeType> ctx,
     Pointer<Uint8> md,
-    Pointer<Uint8> s
+    Pointer<Uint8> s,
   ),
   int Function(
     Pointer<NativeType> ctx,
     Pointer<Uint8> md,
-    Pointer<Uint8> s)>('EVP_DigestFinal_ex');
+    Pointer<Uint8> s,
+  )>('EVP_DigestFinal_ex');
 
 final EVP_MD_CTX_free = libcrypto.lookupFunction<
   Pointer<NativeType> Function(Pointer<NativeType> ctx),

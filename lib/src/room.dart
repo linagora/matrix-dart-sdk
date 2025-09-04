@@ -29,27 +29,8 @@ import 'package:matrix/src/models/timeline_chunk.dart';
 import 'package:matrix/src/utils/cached_stream_controller.dart';
 import 'package:matrix/src/utils/markdown.dart';
 import 'package:matrix/src/utils/marked_unread.dart';
+import 'package:matrix/src/utils/room_enums.dart';
 import 'package:matrix/src/utils/space_child.dart';
-
-enum PushRuleState { notify, mentionsOnly, dontNotify }
-
-enum JoinRules { public, knock, invite, private }
-
-enum GuestAccess { canJoin, forbidden }
-
-enum HistoryVisibility { invited, joined, shared, worldReadable }
-
-const Map<GuestAccess, String> _guestAccessMap = {
-  GuestAccess.canJoin: 'can_join',
-  GuestAccess.forbidden: 'forbidden',
-};
-
-const Map<HistoryVisibility, String> _historyVisibilityMap = {
-  HistoryVisibility.invited: 'invited',
-  HistoryVisibility.joined: 'joined',
-  HistoryVisibility.shared: 'shared',
-  HistoryVisibility.worldReadable: 'world_readable',
-};
 
 /// max PDU size for server to accept the event with some buffer incase the server adds unsigned data f.ex age
 /// https://spec.matrix.org/v1.9/client-server-api/#size-limits
@@ -681,8 +662,7 @@ class Room {
       parseMarkdown: parseMarkdown,
       msgtype: msgtype,
     );
-    return sendEvent(
-        eventContent,
+    return sendEvent(eventContent,
         txid: txid,
         inReplyTo: inReplyTo,
         editEventId: editEventId,
@@ -1148,7 +1128,8 @@ class Room {
       direction,
       from: prev_batch,
       limit: historyCount,
-      filter: jsonEncode((filter ?? StateFilter(lazyLoadMembers: true)).toJson()),
+      filter:
+          jsonEncode((filter ?? StateFilter(lazyLoadMembers: true)).toJson()),
     );
 
     if (onHistoryReceived != null) onHistoryReceived();
@@ -1457,6 +1438,7 @@ class Room {
   }
 
   bool _requestedParticipants = false;
+
   /// Request the full list of participants from the server. The local list
   /// from the store is not complete if the client uses lazy loading.
   /// List `membershipFilter` defines with what membership do you want the
@@ -1535,7 +1517,9 @@ class Room {
       try {
         await client.database?.storeUsers(users, this);
       } catch (e) {
-        Logs().w('Room::requestParticipantsFromServer: Unable to store users in the database', e);
+        Logs().w(
+            'Room::requestParticipantsFromServer: Unable to store users in the database',
+            e);
       }
     }
 

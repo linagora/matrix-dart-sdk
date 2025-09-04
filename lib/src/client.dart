@@ -25,6 +25,7 @@ import 'dart:typed_data';
 import 'package:async/async.dart';
 import 'package:collection/collection.dart' show IterableExtension;
 import 'package:http/http.dart' as http;
+import 'package:matrix/src/utils/room_enums.dart';
 import 'package:mime/mime.dart';
 import 'package:random_string/random_string.dart';
 import 'package:vodozemac/vodozemac.dart' as vod;
@@ -37,7 +38,6 @@ import 'package:matrix/src/models/timeline_chunk.dart';
 import 'package:matrix/src/utils/cached_stream_controller.dart';
 import 'package:matrix/src/utils/client_init_exception.dart';
 import 'package:matrix/src/utils/multilock.dart';
-import 'package:matrix/src/utils/run_benchmarked.dart';
 import 'package:matrix/src/utils/run_in_root.dart';
 import 'package:matrix/src/utils/sync_update_item_count.dart';
 import 'package:matrix/src/utils/try_get_push_rule.dart';
@@ -899,10 +899,9 @@ class Client extends MatrixApi {
     }
     if (groupCall) {
       powerLevelContentOverride ??= {};
-      if (powerLevelContentOverride['events'] is Map) {
-        powerLevelContentOverride['events'][EventTypes.GroupCallMemberPrefix] = 0;
-        powerLevelContentOverride['events'][EventTypes.GroupCallPrefix] = 0;
-      }
+      powerLevelContentOverride['events'] ??= {};
+      powerLevelContentOverride['events'][EventTypes.GroupCallMember] ??=
+          powerLevelContentOverride['events_default'] ?? 0;
     }
 
     final roomId = await createRoom(
@@ -2177,7 +2176,7 @@ class Client extends MatrixApi {
       );
 
       /// Timeout of 0, so that we don't see a spinner for 30 seconds.
-      final syncFuture = _sync();
+      firstSyncReceived = _sync();
       if (waitForFirstSync) {
         onInitStateChanged?.call(InitState.waitingForFirstSync);
         await firstSyncReceived;
@@ -2524,7 +2523,7 @@ class Client extends MatrixApi {
     }
 
     for (final newAccountData in sync.accountData ?? []) {
-      await database?.storeAccountData(
+      await database.storeAccountData(
         newAccountData.type,
         newAccountData.content,
       );

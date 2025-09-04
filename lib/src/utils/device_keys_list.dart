@@ -89,10 +89,10 @@ class DeviceKeysList {
                 2) {
           // Now we check if the users in the room are none other than the current
           // user and the user we want to verify
-          final members = tempRoom.getParticipants([
+          final members = tempRoom.getParticipants(membershipFilter: [
             Membership.invite,
             Membership.join,
-          ]);
+          ],);
           if (members.every((m) => {userId, client.userID}.contains(m.id))) {
             // if so, we use that room
             room = tempRoom;

@@ -24,7 +24,6 @@ import 'package:html/parser.dart';
 import 'package:mime/mime.dart';
 
 import 'package:matrix/matrix.dart';
-import 'package:matrix/src/utils/file_send_request_credentials.dart';
 import 'package:matrix/src/utils/html_to_text.dart';
 import 'package:matrix/src/utils/markdown.dart';
 
@@ -726,16 +725,13 @@ class Event extends MatrixEvent {
       throw "This event hasn't any attachment or thumbnail.";
     }
     getThumbnail = mxcUrl != attachmentMxcUrl;
-    // Is this file storeable?
-    final thisInfoMap = getThumbnail ? thumbnailInfoMap : infoMap;
+
     final database = room.client.database;
 
-    final storeable = thisInfoMap['size'] is int &&
-        thisInfoMap['size'] <= database.maxFileSize;
-
+    final storeable = isFileStoreable(getThumbnail: getThumbnail);
     Uint8List? uint8list;
     if (storeable) {
-      uint8list = await database.getFile(eventId);
+      uint8list = await database.getFile(mxcUrl);
     }
     return uint8list != null;
   }
@@ -743,8 +739,7 @@ class Event extends MatrixEvent {
   bool isFileStoreable({bool getThumbnail = false}) {
     final database = room.client.database;
     final thisInfoMap = getThumbnail ? thumbnailInfoMap : infoMap;
-    return database != null &&
-        thisInfoMap['size'] is int &&
+    return thisInfoMap['size'] is int &&
         thisInfoMap['size'] <= database.maxFileSize;
   }
 
@@ -782,7 +777,7 @@ class Event extends MatrixEvent {
 
     Uint8List? uint8list;
     if (storeable) {
-      uint8list = await room.client.database.getFile(eventId);
+      uint8list = await room.client.database.getFile(mxcUrl);
     }
 
     // Download the file
@@ -917,7 +912,7 @@ class Event extends MatrixEvent {
       bool removeMarkdown = false,
       bool removeBreakLine = false}) {
     if (redacted) {
-      return i18n.removedBy(this);
+      return i18n.removedBy(senderFromMemoryOrFallback.calcDisplayname());
     }
 
     final body = calcUnlocalizedBody(

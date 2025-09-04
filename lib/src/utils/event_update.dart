@@ -29,12 +29,6 @@ enum EventUpdateType {
   /// Messages that have been fetched when requesting past history
   history,
 
-  /// Updates to account data
-  accountData,
-
-  /// Ephemeral events like receipts
-  ephemeral,
-
   /// The state of an invite
   inviteState,
 
@@ -56,25 +50,6 @@ class EventUpdate with EquatableMixin {
 
   EventUpdate(
       {required this.roomID, required this.type, required this.content});
-
-  Future<EventUpdate> decrypt(Room room, {bool store = false}) async {
-    final encryption = room.client.encryption;
-    if (content['type'] != EventTypes.Encrypted ||
-        !room.client.encryptionEnabled ||
-        encryption == null) {
-      return this;
-    }
-    try {
-      final decrpytedEvent = await encryption.decryptRoomEvent(
-          room.id, Event.fromJson(content, room),
-          store: store, updateType: type);
-      return EventUpdate(
-          roomID: roomID, type: type, content: decrpytedEvent.toJson());
-    } catch (e, s) {
-      Logs().e('[LibOlm] Could not decrypt megolm event', e, s);
-      return this;
-    }
-  }
 
   @override
   List<Object?> get props => [
