@@ -24,6 +24,7 @@
 /// Lightweight wrapper around the raw matrix API.
 library;
 
+export 'matrix_api_lite/generated/fixed_model.dart';
 export 'matrix_api_lite/generated/model.dart';
 export 'matrix_api_lite/matrix_api.dart';
 export 'matrix_api_lite/model/algorithm_types.dart';
@@ -65,3 +66,4 @@ export 'matrix_api_lite/utils/logs.dart';
 export 'matrix_api_lite/utils/map_copy_extension.dart';
 export 'matrix_api_lite/utils/try_get_map_extension.dart';
 export 'matrix_api_lite/values.dart';
+export 'src/utils/debug_utils.dart';

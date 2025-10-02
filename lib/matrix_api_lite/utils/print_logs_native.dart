@@ -12,19 +12,19 @@ extension PrintLogs on LogEvent {
     if (Logs().nativeColors) {
       switch (level) {
         case Level.wtf:
-          logsStr = '\x1B[31m!!!CRITICAL!!! $logsStr\x1B[0m';
+          logsStr = '\x1B[31m!!!CRITICAL!!! ${DateTime.now()}: $logsStr\x1B[0m';
           break;
         case Level.error:
-          logsStr = '\x1B[31m$logsStr\x1B[0m';
+          logsStr = '\x1B[31m${DateTime.now()}: $logsStr\x1B[0m';
           break;
         case Level.warning:
-          logsStr = '\x1B[33m$logsStr\x1B[0m';
+          logsStr = '\x1B[33m${DateTime.now()}: $logsStr\x1B[0m';
           break;
         case Level.info:
-          logsStr = '\x1B[32m$logsStr\x1B[0m';
+          logsStr = '\x1B[32m${DateTime.now()}: $logsStr\x1B[0m';
           break;
         case Level.debug:
-          logsStr = '\x1B[34m$logsStr\x1B[0m';
+          logsStr = '\x1B[34m${DateTime.now()}: $logsStr\x1B[0m';
           break;
         case Level.verbose:
           break;

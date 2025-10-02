@@ -14,7 +14,7 @@ void main() {
   final heroes = [
     '@alice:matrix.org',
     '@bob:example.com',
-    '@charley:example.org'
+    '@charley:example.org',
   ];
 
   group('[get event content from msg text test]\n', () {
@@ -34,11 +34,11 @@ void main() {
           'm.heroes': heroes,
         }),
         roomAccountData: {
-          'com.test.foo': BasicRoomEvent(
+          'com.test.foo': BasicEvent(
             type: 'com.test.foo',
             content: {'foo': 'bar'},
           ),
-          'm.fully_read': BasicRoomEvent(
+          'm.fully_read': BasicEvent(
             type: 'm.fully_read',
             content: {'event_id': '\$event_id:example.com'},
           ),

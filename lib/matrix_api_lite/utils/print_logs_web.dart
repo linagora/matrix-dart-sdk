@@ -1,8 +1,7 @@
 import 'dart:js_interop';
 
-import 'package:web/web.dart';
-
 import 'package:matrix/matrix_api_lite.dart';
+import 'package:web/web.dart';
 
 extension PrintLogs on LogEvent {
   void printOut() {
@@ -13,6 +12,7 @@ extension PrintLogs on LogEvent {
     if (stackTrace != null) {
       logsStr += '\n${stackTrace.toString()}';
     }
+    logsStr = ' ${DateTime.now()}: $logsStr';
     switch (level) {
       case Level.wtf:
         console.error('!!!CRITICAL!!! $logsStr'.toJS);

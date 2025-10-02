@@ -1,4 +1,4 @@
-import 'package:matrix_api_lite/matrix_api_lite.dart';
+import 'package:matrix/matrix_api_lite.dart';
 
 bool isVersionGreaterThanOrEqualTo(String version, String target) {
   try {

@@ -21,6 +21,7 @@
 * SOFTWARE.
 */
 
+import 'package:matrix/matrix_api_lite.dart';
 import 'package:matrix/matrix_api_lite/utils/print_logs_native.dart'
     if (dart.library.js_interop) 'print_logs_web.dart';
 
@@ -52,6 +53,9 @@ class Logs {
   Logs._internal();
 
   void addLogEvent(LogEvent logEvent) {
+    if (!DebugUtils().isDebugMode) {
+      return;
+    }
     outputEvents.add(logEvent);
     if (logEvent.level.index <= level.index) {
       logEvent.printOut();
