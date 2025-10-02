@@ -188,7 +188,7 @@ class MatrixSdkDatabase extends DatabaseApi with DatabaseFileStorage {
     Duration? deleteFilesAfterDuration,
     OnStartMigrating? onStartMigrating,
   }) async {
-    final matrixSdkDatabase = MatrixSdkDatabase._(
+    final matrixSdkDatabase = MatrixSdkDatabase(
       name,
       database: database,
       idbFactory: idbFactory,
@@ -202,7 +202,7 @@ class MatrixSdkDatabase extends DatabaseApi with DatabaseFileStorage {
     return matrixSdkDatabase;
   }
 
-  MatrixSdkDatabase._(
+  MatrixSdkDatabase(
     this.name, {
     this.database,
     this.idbFactory,
