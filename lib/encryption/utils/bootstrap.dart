@@ -20,13 +20,11 @@ import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:canonical_json/canonical_json.dart';
-import 'package:olm/olm.dart' as olm;
-
 import 'package:matrix/encryption/encryption.dart';
 import 'package:matrix/encryption/key_manager.dart';
 import 'package:matrix/encryption/ssss.dart';
-import 'package:matrix/encryption/utils/base64_unpadded.dart';
 import 'package:matrix/matrix.dart';
+import 'package:vodozemac/vodozemac.dart' as vod;
 
 enum BootstrapState {
   /// Is loading.
@@ -90,6 +88,8 @@ class Bootstrap {
 
   // cache the secret analyzing so that we don't drop stuff a different client sets during bootstrapping
   Map<String, Set<String>>? _secretsCache;
+
+  /// returns ssss from accountdata, eg: m.megolm_backup.v1, or your m.cross_signing stuff
   Map<String, Set<String>> analyzeSecrets() {
     final secretsCache = _secretsCache;
     if (secretsCache != null) {
@@ -162,7 +162,8 @@ class Bootstrap {
   Set<String> allNeededKeys() {
     final secrets = analyzeSecrets();
     secrets.removeWhere(
-        (k, v) => v.isEmpty); // we don't care about the failed secrets here
+      (k, v) => v.isEmpty,
+    ); // we don't care about the failed secrets here
     final keys = <String>{};
     final defaultKeyId = encryption.ssss.defaultKeyId;
     int removeKey(String key) {
@@ -292,12 +293,13 @@ class Bootstrap {
         }
         // alright, we re-encrypted all the secrets. We delete the dead weight only *after* we set our key to the default key
       }
-      final updatedAccountData = client.onSync.stream.firstWhere((syncUpdate) =>
-          syncUpdate.accountData != null &&
-          syncUpdate.accountData!.any((accountData) =>
-              accountData.type == EventTypes.SecretStorageDefaultKey));
       await encryption.ssss.setDefaultKeyId(newSsssKey!.keyId);
-      await updatedAccountData;
+      while (encryption.ssss.defaultKeyId != newSsssKey!.keyId) {
+        Logs().v(
+          'Waiting accountData to have the correct m.secret_storage.default_key',
+        );
+        await client.oneShotSync();
+      }
       if (oldSsssKeys != null) {
         for (final entry in secretMap!.entries) {
           Logs().v('Validate and stripe other keys ${entry.key}...');
@@ -352,10 +354,11 @@ class Bootstrap {
     }
   }
 
-  Future<void> askSetupCrossSigning(
-      {bool setupMasterKey = false,
-      bool setupSelfSigningKey = false,
-      bool setupUserSigningKey = false}) async {
+  Future<void> askSetupCrossSigning({
+    bool setupMasterKey = false,
+    bool setupSelfSigningKey = false,
+    bool setupUserSigningKey = false,
+  }) async {
     if (state != BootstrapState.askSetupCrossSigning) {
       throw BootstrapBadStateException();
     }
@@ -366,152 +369,120 @@ class Bootstrap {
     }
     final userID = client.userID!;
     try {
-      Uint8List masterSigningKey;
+      String masterSigningKey;
       final secretsToStore = <String, String>{};
       MatrixCrossSigningKey? masterKey;
       MatrixCrossSigningKey? selfSigningKey;
       MatrixCrossSigningKey? userSigningKey;
       String? masterPub;
       if (setupMasterKey) {
-        final master = olm.PkSigning();
-        try {
-          masterSigningKey = master.generate_seed();
-          masterPub = master.init_with_seed(masterSigningKey);
-          final json = <String, dynamic>{
-            'user_id': userID,
-            'usage': ['master'],
-            'keys': <String, dynamic>{
-              'ed25519:$masterPub': masterPub,
-            },
-          };
-          masterKey = MatrixCrossSigningKey.fromJson(json);
-          secretsToStore[EventTypes.CrossSigningMasterKey] =
-              base64.encode(masterSigningKey);
-        } finally {
-          master.free();
-        }
+        final master = vod.PkSigning();
+        masterSigningKey = master.secretKey;
+        masterPub = master.publicKey.toBase64();
+        final json = <String, dynamic>{
+          'user_id': userID,
+          'usage': ['master'],
+          'keys': <String, dynamic>{
+            'ed25519:$masterPub': masterPub,
+          },
+        };
+        masterKey = MatrixCrossSigningKey.fromJson(json);
+        secretsToStore[EventTypes.CrossSigningMasterKey] = masterSigningKey;
       } else {
         Logs().v('Get stored key...');
-        masterSigningKey = base64decodeUnpadded(
-            await newSsssKey?.getStored(EventTypes.CrossSigningMasterKey) ??
-                '');
+        masterSigningKey =
+            await newSsssKey?.getStored(EventTypes.CrossSigningMasterKey) ?? '';
         if (masterSigningKey.isEmpty) {
           // no master signing key :(
           throw BootstrapBadStateException('No master key');
         }
-        final master = olm.PkSigning();
-        try {
-          masterPub = master.init_with_seed(masterSigningKey);
-        } finally {
-          master.free();
-        }
+        final master = vod.PkSigning.fromSecretKey(masterSigningKey);
+        masterPub = master.publicKey.toBase64();
       }
       String? sign(Map<String, dynamic> object) {
-        final keyObj = olm.PkSigning();
-        try {
-          keyObj.init_with_seed(masterSigningKey);
-          return keyObj
-              .sign(String.fromCharCodes(canonicalJson.encode(object)));
-        } finally {
-          keyObj.free();
-        }
+        final keyObj = vod.PkSigning.fromSecretKey(masterSigningKey);
+        return keyObj
+            .sign(String.fromCharCodes(canonicalJson.encode(object)))
+            .toBase64();
       }
 
       if (setupSelfSigningKey) {
-        final selfSigning = olm.PkSigning();
-        try {
-          final selfSigningPriv = selfSigning.generate_seed();
-          final selfSigningPub = selfSigning.init_with_seed(selfSigningPriv);
-          final json = <String, dynamic>{
-            'user_id': userID,
-            'usage': ['self_signing'],
-            'keys': <String, dynamic>{
-              'ed25519:$selfSigningPub': selfSigningPub,
-            },
-          };
-          final signature = sign(json);
-          json['signatures'] = <String, dynamic>{
-            userID: <String, dynamic>{
-              'ed25519:$masterPub': signature,
-            },
-          };
-          selfSigningKey = MatrixCrossSigningKey.fromJson(json);
-          secretsToStore[EventTypes.CrossSigningSelfSigning] =
-              base64.encode(selfSigningPriv);
-        } finally {
-          selfSigning.free();
-        }
+        final selfSigning = vod.PkSigning();
+        final selfSigningPriv = selfSigning.secretKey;
+        final selfSigningPub = selfSigning.publicKey.toBase64();
+        final json = <String, dynamic>{
+          'user_id': userID,
+          'usage': ['self_signing'],
+          'keys': <String, dynamic>{
+            'ed25519:$selfSigningPub': selfSigningPub,
+          },
+        };
+        final signature = sign(json);
+        json['signatures'] = <String, dynamic>{
+          userID: <String, dynamic>{
+            'ed25519:$masterPub': signature,
+          },
+        };
+        selfSigningKey = MatrixCrossSigningKey.fromJson(json);
+        secretsToStore[EventTypes.CrossSigningSelfSigning] = selfSigningPriv;
       }
       if (setupUserSigningKey) {
-        final userSigning = olm.PkSigning();
-        try {
-          final userSigningPriv = userSigning.generate_seed();
-          final userSigningPub = userSigning.init_with_seed(userSigningPriv);
-          final json = <String, dynamic>{
-            'user_id': userID,
-            'usage': ['user_signing'],
-            'keys': <String, dynamic>{
-              'ed25519:$userSigningPub': userSigningPub,
-            },
-          };
-          final signature = sign(json);
-          json['signatures'] = <String, dynamic>{
-            userID: <String, dynamic>{
-              'ed25519:$masterPub': signature,
-            },
-          };
-          userSigningKey = MatrixCrossSigningKey.fromJson(json);
-          secretsToStore[EventTypes.CrossSigningUserSigning] =
-              base64.encode(userSigningPriv);
-        } finally {
-          userSigning.free();
-        }
+        final userSigning = vod.PkSigning();
+        final userSigningPriv = userSigning.secretKey;
+        final userSigningPub = userSigning.publicKey.toBase64();
+        final json = <String, dynamic>{
+          'user_id': userID,
+          'usage': ['user_signing'],
+          'keys': <String, dynamic>{
+            'ed25519:$userSigningPub': userSigningPub,
+          },
+        };
+        final signature = sign(json);
+        json['signatures'] = <String, dynamic>{
+          userID: <String, dynamic>{
+            'ed25519:$masterPub': signature,
+          },
+        };
+        userSigningKey = MatrixCrossSigningKey.fromJson(json);
+        secretsToStore[EventTypes.CrossSigningUserSigning] = userSigningPriv;
       }
       // upload the keys!
       state = BootstrapState.loading;
       Logs().v('Upload device signing keys.');
       await client.uiaRequestBackground(
-          (AuthenticationData? auth) => client.uploadCrossSigningKeys(
-                masterKey: masterKey,
-                selfSigningKey: selfSigningKey,
-                userSigningKey: userSigningKey,
-                auth: auth,
-              ));
+        (AuthenticationData? auth) => client.uploadCrossSigningKeys(
+          masterKey: masterKey,
+          selfSigningKey: selfSigningKey,
+          userSigningKey: userSigningKey,
+          auth: auth,
+        ),
+      );
       Logs().v('Device signing keys have been uploaded.');
       // aaaand set the SSSS secrets
-      final futures = <Future<void>>[];
       if (masterKey != null) {
-        futures.add(
-          client.onSync.stream
-              .firstWhere((syncUpdate) =>
-                  masterKey?.publicKey != null &&
-                  client.userDeviceKeys[client.userID]?.masterKey?.ed25519Key ==
-                      masterKey?.publicKey)
-              .then((_) => Logs().v('New Master Key was created')),
-        );
+        while (!(masterKey.publicKey != null &&
+            client.userDeviceKeys[client.userID]?.masterKey?.ed25519Key ==
+                masterKey.publicKey)) {
+          Logs().v('Waiting for master to be created');
+          await client.oneShotSync();
+        }
       }
-      for (final entry in secretsToStore.entries) {
-        futures.add(
-          client.onSync.stream
-              .firstWhere((syncUpdate) =>
-                  syncUpdate.accountData != null &&
-                  syncUpdate.accountData!
-                      .any((accountData) => accountData.type == entry.key))
-              .then((_) =>
-                  Logs().v('New Key with type ${entry.key} was created')),
-        );
-        Logs().v('Store new SSSS key ${entry.key}...');
-        await newSsssKey?.store(entry.key, entry.value);
+      if (newSsssKey != null) {
+        final storeFutures = <Future<void>>[];
+        for (final entry in secretsToStore.entries) {
+          storeFutures.add(newSsssKey!.store(entry.key, entry.value));
+        }
+        Logs().v('Store new SSSS key entries...');
+        await Future.wait(storeFutures);
       }
-      Logs().v(
-          'Wait for MasterKey and ${secretsToStore.entries.length} keys to be created');
-      await Future.wait<void>(futures);
+
       final keysToSign = <SignableKey>[];
       if (masterKey != null) {
         if (client.userDeviceKeys[client.userID]?.masterKey?.ed25519Key !=
             masterKey.publicKey) {
           throw BootstrapBadStateException(
-              'ERROR: New master key does not match up!');
+            'ERROR: New master key does not match up!',
+          );
         }
         Logs().v('Set own master key to verified...');
         await client.userDeviceKeys[client.userID]!.masterKey!
@@ -520,7 +491,8 @@ class Bootstrap {
       }
       if (selfSigningKey != null) {
         keysToSign.add(
-            client.userDeviceKeys[client.userID]!.deviceKeys[client.deviceID]!);
+          client.userDeviceKeys[client.userID]!.deviceKeys[client.deviceID]!,
+        );
       }
       Logs().v('Sign ourself...');
       await encryption.crossSigning.sign(keysToSign);
@@ -563,15 +535,13 @@ class Bootstrap {
       return;
     }
     try {
-      final keyObj = olm.PkDecryption();
+      final keyObj = vod.PkDecryption();
       String pubKey;
       Uint8List privKey;
-      try {
-        pubKey = keyObj.generate_key();
-        privKey = keyObj.get_private_key();
-      } finally {
-        keyObj.free();
-      }
+
+      pubKey = keyObj.publicKey;
+      privKey = keyObj.privateKey;
+
       Logs().v('Create the new backup version...');
       await client.postRoomKeysVersion(
         BackupAlgorithm.mMegolmBackupV1Curve25519AesSha2,
@@ -581,17 +551,10 @@ class Bootstrap {
       );
       Logs().v('Store the secret...');
       await newSsssKey?.store(megolmKey, base64.encode(privKey));
-      Logs().v('Wait for secret to come down sync');
-
-      if (!await encryption.keyManager.isCached()) {
-        await client.onSync.stream.firstWhere((syncUpdate) =>
-            syncUpdate.accountData != null &&
-            syncUpdate.accountData!
-                .any((accountData) => accountData.type == megolmKey));
-      }
 
       Logs().v(
-          'And finally set all megolm keys as needing to be uploaded again...');
+        'And finally set all megolm keys as needing to be uploaded again...',
+      );
       await client.database?.markInboundGroupSessionsAsNeedingUpload();
       Logs().v('And uploading keys...');
       await client.encryption?.keyManager.uploadInboundGroupSessions();

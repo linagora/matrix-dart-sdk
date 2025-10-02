@@ -78,10 +78,11 @@ extension DehydratedDeviceHandler on Client {
       // We need to be careful to not use the client.deviceId here and such.
       final encryption = Encryption(client: this);
       try {
-        await encryption.init(pickledDevice,
-            deviceId: device.deviceId,
-            pickleKey: pickleDeviceKey,
-            isDehydratedDevice: true);
+        await encryption.init(
+          pickledDevice,
+          deviceId: device.deviceId,
+          pickleKey: pickleDeviceKey,
+        );
 
         if (dehydratedDeviceIdentity.curve25519Key != encryption.identityKey ||
             dehydratedDeviceIdentity.ed25519Key != encryption.fingerprintKey) {
@@ -137,8 +138,7 @@ extension DehydratedDeviceHandler on Client {
       }
 
       // Generate a new olm account for the dehydrated device.
-      await encryption.init(null,
-          deviceId: null, isDehydratedDevice: true, pickleKey: pickleDeviceKey);
+      await encryption.init(null, deviceId: null, pickleKey: pickleDeviceKey);
       String device;
       try {
         device = await uploadDehydratedDevice(

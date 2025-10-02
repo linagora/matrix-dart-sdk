@@ -31,7 +31,7 @@ dependencies:
       url: https://github.com/linagora/dart_matrix_api_lite.git
       ref: main
   mime: ^1.0.0
-  olm: ^2.0.2
+  vodozemac: ^0.3.0
   random_string: ^2.3.1
   sdp_transform: ^0.3.2
   slugify: ^2.0.0

@@ -66,8 +66,9 @@ class EventUpdate with EquatableMixin {
     }
     try {
       final decrpytedEvent = await encryption.decryptRoomEvent(
-          room.id, Event.fromJson(content, room),
-          store: store, updateType: type);
+          Event.fromJson(content, room),
+          store: store,
+          updateType: type);
       return EventUpdate(
           roomID: roomID, type: type, content: decrpytedEvent.toJson());
     } catch (e, s) {

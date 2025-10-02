@@ -26,11 +26,6 @@ import 'package:async/async.dart';
 import 'package:collection/collection.dart' show IterableExtension;
 import 'package:http/http.dart' as http;
 import 'package:http/http.dart';
-import 'package:matrix/src/utils/versions_comparator.dart';
-import 'package:mime/mime.dart';
-import 'package:olm/olm.dart' as olm;
-import 'package:random_string/random_string.dart';
-
 import 'package:matrix/encryption.dart';
 import 'package:matrix/matrix.dart';
 import 'package:matrix/src/models/timeline_chunk.dart';
@@ -40,6 +35,10 @@ import 'package:matrix/src/utils/multilock.dart';
 import 'package:matrix/src/utils/run_in_root.dart';
 import 'package:matrix/src/utils/sync_update_item_count.dart';
 import 'package:matrix/src/utils/try_get_push_rule.dart';
+import 'package:matrix/src/utils/versions_comparator.dart';
+import 'package:mime/mime.dart';
+import 'package:random_string/random_string.dart';
+import 'package:vodozemac/vodozemac.dart' as vod;
 
 typedef RoomSorter = int Function(Room a, Room b);
 
@@ -714,7 +713,8 @@ class Client extends MatrixApi {
     if (groupCall) {
       powerLevelContentOverride ??= {};
       if (powerLevelContentOverride['events'] is Map) {
-        powerLevelContentOverride['events'][EventTypes.GroupCallMemberPrefix] = 0;
+        powerLevelContentOverride['events'][EventTypes.GroupCallMemberPrefix] =
+            0;
         powerLevelContentOverride['events'][EventTypes.GroupCallPrefix] = 0;
       }
     }
@@ -1004,7 +1004,6 @@ class Client extends MatrixApi {
         if (timeline.events[i].type == EventTypes.Encrypted) {
           await archivedRoom.client.encryption!
               .decryptRoomEvent(
-                archivedRoom.id,
                 timeline.events[i],
               )
               .then(
@@ -1283,7 +1282,8 @@ class Client extends MatrixApi {
       await abortSync();
       await dispose(closeDatabase: false);
 
-      final export = await database!.exportDump(supportDeleteCollections: _supportDeleteCollections);
+      final export = await database!
+          .exportDump(supportDeleteCollections: _supportDeleteCollections);
 
       await clear();
       return export;
@@ -1304,7 +1304,8 @@ class Client extends MatrixApi {
 
     _database ??= await databaseBuilder!.call(this);
 
-    final success = await database!.importDump(export, supportDeleteCollections: _supportDeleteCollections);
+    final success = await database!.importDump(export,
+        supportDeleteCollections: _supportDeleteCollections);
 
     if (success) {
       // closing including DB
@@ -1334,7 +1335,7 @@ class Client extends MatrixApi {
       return setAvatarUrl(userID!, Uri.parse(''));
     }
     if (file.bytes == null) {
-      return ;
+      return;
     }
     final uploadResp = await uploadContent(
       file.bytes!,
@@ -1624,11 +1625,11 @@ class Client extends MatrixApi {
 
     final encryption = this.encryption;
     if (event.type == EventTypes.Encrypted && encryption != null) {
-      var decrypted = await encryption.decryptRoomEvent(roomId, event);
+      var decrypted = await encryption.decryptRoomEvent(event);
       if (decrypted.messageType == MessageTypes.BadEncrypted &&
           prevBatch != null) {
         await oneShotSync();
-        decrypted = await encryption.decryptRoomEvent(roomId, event);
+        decrypted = await encryption.decryptRoomEvent(event);
       }
       event = decrypted;
     }
@@ -1757,8 +1758,7 @@ class Client extends MatrixApi {
       await encryption?.dispose();
       try {
         // make sure to throw an exception if libolm doesn't exist
-        await olm.init();
-        olm.get_library_version();
+        await vod.init();
         encryption = Encryption(client: this);
       } catch (e) {
         Logs().e('Error initializing encryption $e');
@@ -1842,7 +1842,8 @@ class Client extends MatrixApi {
     Logs().outputEvents.clear();
     try {
       await abortSync();
-      await database?.clear(supportDeleteCollections: _supportDeleteCollections);
+      await database?.clear(
+          supportDeleteCollections: _supportDeleteCollections);
       _backgroundSync = true;
     } catch (e, s) {
       Logs().e('Unable to clear database', e, s);
@@ -3329,7 +3330,8 @@ class Client extends MatrixApi {
         Logs().e('Unable to migrate inbound group sessions!', e, s);
       }
 
-      await legacyDatabase.clear(supportDeleteCollections: _supportDeleteCollections);
+      await legacyDatabase.clear(
+          supportDeleteCollections: _supportDeleteCollections);
     }
     await legacyDatabase?.close();
     _initLock = false;
