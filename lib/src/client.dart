@@ -1756,14 +1756,14 @@ class Client extends MatrixApi {
       }
 
       await encryption?.dispose();
-      try {
-        // make sure to throw an exception if libolm doesn't exist
-        await vod.init();
-        encryption = Encryption(client: this);
-      } catch (e) {
-        Logs().e('Error initializing encryption $e');
-        await encryption?.dispose();
-        encryption = null;
+      if (vod.isInitialized()) {
+        try {
+          encryption = Encryption(client: this);
+        } catch (e) {
+          Logs().e('Error initializing encryption $e');
+          await encryption?.dispose();
+          encryption = null;
+        }
       }
       await encryption?.init(olmAccount);
 
