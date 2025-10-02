@@ -1756,14 +1756,15 @@ class Client extends MatrixApi {
       }
 
       await encryption?.dispose();
-      if (vod.isInitialized()) {
-        try {
-          encryption = Encryption(client: this);
-        } catch (e) {
-          Logs().e('Error initializing encryption $e');
-          await encryption?.dispose();
-          encryption = null;
-        }
+      if (!vod.isInitialized()) {
+        await vod.init();
+      }
+      try {
+        encryption = Encryption(client: this);
+      } catch (e) {
+        Logs().e('Error initializing encryption $e');
+        await encryption?.dispose();
+        encryption = null;
       }
       await encryption?.init(olmAccount);
 
