@@ -339,7 +339,10 @@ class Encryption {
         }
         await client.database?.storeEventUpdate(
           EventUpdate(
-            content: event.content,
+            content: {
+              ...event.content,
+              'event_id': event.eventId,
+            },
             roomID: event.room.id,
             type: updateType,
           ),
