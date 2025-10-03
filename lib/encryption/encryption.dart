@@ -341,7 +341,7 @@ class Encryption {
           EventUpdate(
             content: {
               ...event.content,
-              'event_id': event.eventId,
+              ...event.toJson(),
             },
             roomID: event.room.id,
             type: updateType,
