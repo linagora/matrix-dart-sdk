@@ -843,6 +843,9 @@ class KeyManager {
 
     Future<void> uploadInternal() async {
       try {
+        if (!vod.isInitialized()) {
+          await vod.init();
+        }
         await client.userDeviceKeysLoading;
 
         if (!(await isCached())) {
