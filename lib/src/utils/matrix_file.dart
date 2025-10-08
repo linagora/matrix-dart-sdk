@@ -25,10 +25,8 @@ import 'dart:typed_data';
 import 'package:blurhash_dart/blurhash_dart.dart';
 import 'package:equatable/equatable.dart';
 import 'package:image/image.dart';
-import 'package:mime/mime.dart';
-
 import 'package:matrix/matrix.dart';
-import 'package:matrix/src/utils/compute_callback.dart';
+import 'package:mime/mime.dart';
 
 class MatrixFile with EquatableMixin {
   final Uint8List? bytes;
@@ -188,13 +186,8 @@ class MatrixImageFile extends MatrixFile {
     required String name,
     String? mimeType,
     String? filePath,
-    @Deprecated('Use [nativeImplementations] instead') ComputeRunner? compute,
     NativeImplementations nativeImplementations = NativeImplementations.dummy,
   }) async {
-    if (compute != null) {
-      nativeImplementations =
-          NativeImplementationsIsolate.fromRunInBackground(compute);
-    }
     final metaData = await nativeImplementations.calcImageMetadata(bytes);
 
     return MatrixImageFile(
@@ -219,13 +212,8 @@ class MatrixImageFile extends MatrixFile {
     Future<MatrixImageFileResizedResponse?> Function(
             MatrixImageFileResizeArguments)?
         customImageResizer,
-    @Deprecated('Use [nativeImplementations] instead') ComputeRunner? compute,
     NativeImplementations nativeImplementations = NativeImplementations.dummy,
   }) async {
-    if (compute != null) {
-      nativeImplementations =
-          NativeImplementationsIsolate.fromRunInBackground(compute);
-    }
     final image = MatrixImageFile(name: name, mimeType: mimeType, bytes: bytes);
 
     return await image.generateThumbnail(
@@ -272,13 +260,8 @@ class MatrixImageFile extends MatrixFile {
     Future<MatrixImageFileResizedResponse?> Function(
             MatrixImageFileResizeArguments)?
         customImageResizer,
-    @Deprecated('Use [nativeImplementations] instead') ComputeRunner? compute,
     NativeImplementations nativeImplementations = NativeImplementations.dummy,
   }) async {
-    if (compute != null) {
-      nativeImplementations =
-          NativeImplementationsIsolate.fromRunInBackground(compute);
-    }
     if (bytes != null) {
       final arguments = MatrixImageFileResizeArguments(
         bytes: bytes!,
@@ -314,6 +297,7 @@ class MatrixImageFile extends MatrixFile {
       );
       return thumbnailFile;
     }
+    return null;
   }
 
   /// you would likely want to use [NativeImplementations] and
