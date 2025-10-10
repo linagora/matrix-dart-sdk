@@ -22,7 +22,6 @@ import 'dart:typed_data';
 
 import 'package:collection/collection.dart';
 import 'package:html_unescape/html_unescape.dart';
-
 import 'package:matrix/matrix.dart';
 import 'package:matrix/src/models/timeline_chunk.dart';
 import 'package:matrix/src/utils/cached_stream_controller.dart';
@@ -159,7 +158,7 @@ class Room {
     // Decrypt if necessary
     if (state.type == EventTypes.Encrypted && client.encryptionEnabled) {
       try {
-        state = client.encryption?.decryptRoomEventSync(id, state) ?? state;
+        state = client.encryption?.decryptRoomEventSync(state) ?? state;
       } catch (e, s) {
         Logs().e('[LibOlm] Could not decrypt room state', e, s);
       }
@@ -1029,9 +1028,11 @@ class Room {
   }
 
   /// Call the Matrix API to invite a user to this room.
-  Future<void> invite(String userID, {
+  Future<void> invite(
+    String userID, {
     String reason = 'Welcome',
-  }) => client.inviteUser(id, userID, reason: reason);
+  }) =>
+      client.inviteUser(id, userID, reason: reason);
 
   /// Request more previous events from the server. [historyCount] defines how much events should
   /// be received maximum. When the request is answered, [onHistoryReceived] will be triggered **before**
@@ -1055,7 +1056,8 @@ class Room {
       direction,
       from: prev_batch,
       limit: historyCount,
-      filter: jsonEncode((filter ?? StateFilter(lazyLoadMembers: true)).toJson()),
+      filter:
+          jsonEncode((filter ?? StateFilter(lazyLoadMembers: true)).toJson()),
     );
 
     if (onHistoryReceived != null) onHistoryReceived();
@@ -1201,7 +1203,6 @@ class Room {
         if (events[i].type == EventTypes.Encrypted &&
             events[i].content['can_request_session'] == true) {
           events[i] = await client.encryption!.decryptRoomEvent(
-            id,
             events[i],
           );
         }
@@ -1263,7 +1264,6 @@ class Room {
         if (encrypted && client.encryptionEnabled) {
           if (events[i].type == EventTypes.Encrypted) {
             events[i] = await client.encryption!.decryptRoomEvent(
-              id,
               events[i],
             );
           }
@@ -1298,7 +1298,6 @@ class Room {
             // for the fragmented timeline, we don't cache the decrypted
             //message in the database
             chunk.events[i] = await client.encryption!.decryptRoomEvent(
-              id,
               chunk.events[i],
             );
           } else if (client.database != null) {
@@ -1307,7 +1306,6 @@ class Room {
               for (var i = 0; i < chunk.events.length; i++) {
                 if (chunk.events[i].content['can_request_session'] == true) {
                   chunk.events[i] = await client.encryption!.decryptRoomEvent(
-                    id,
                     chunk.events[i],
                     store: !isArchived,
                     updateType: EventUpdateType.history,
@@ -1431,7 +1429,9 @@ class Room {
       try {
         await client.database?.storeUsers(users, this);
       } catch (e) {
-        Logs().w('Room::requestParticipantsFromServer: Unable to store users in the database', e);
+        Logs().w(
+            'Room::requestParticipantsFromServer: Unable to store users in the database',
+            e);
       }
     }
 
@@ -1587,7 +1587,6 @@ class Room {
       if (event.type == EventTypes.Encrypted && client.encryptionEnabled) {
         // attempt decryption
         return await client.encryption?.decryptRoomEvent(
-          id,
           event,
         );
       }

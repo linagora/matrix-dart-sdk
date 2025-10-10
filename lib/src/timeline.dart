@@ -20,7 +20,6 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:collection/collection.dart';
-
 import 'package:matrix/matrix.dart';
 import 'package:matrix/src/models/timeline_chunk.dart';
 
@@ -243,7 +242,6 @@ class Timeline {
       for (var i = 0; i < newEvents.length; i++) {
         if (newEvents[i].type == EventTypes.Encrypted) {
           newEvents[i] = await room.client.encryption!.decryptRoomEvent(
-            room.id,
             newEvents[i],
           );
         }
@@ -332,7 +330,6 @@ class Timeline {
             events[i].messageType == MessageTypes.BadEncrypted &&
             events[i].content['session_id'] == sessionId) {
           events[i] = await encryption.decryptRoomEvent(
-            room.id,
             events[i],
             store: true,
             updateType: EventUpdateType.history,
@@ -634,7 +631,7 @@ class Timeline {
             continue;
           }
           if (event.type == EventTypes.Encrypted && encryption != null) {
-            event = await encryption.decryptRoomEvent(room.id, event);
+            event = await encryption.decryptRoomEvent(event);
             if (event.type == EventTypes.Encrypted &&
                 event.messageType == MessageTypes.BadEncrypted &&
                 event.content['can_request_session'] == true) {
@@ -659,14 +656,5 @@ class Timeline {
       }
     }
     yield found;
-  }
-}
-
-extension on List<Event> {
-  int get firstIndexWhereNotError {
-    if (isEmpty) return 0;
-    final index = indexWhere((event) => !event.status.isError);
-    if (index == -1) return length;
-    return index;
   }
 }
