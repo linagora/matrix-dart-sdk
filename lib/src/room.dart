@@ -1329,6 +1329,172 @@ class Room {
     return timeline;
   }
 
+  /// Creates a timeline with grouped image bubble events from the store.
+  /// Returns a [Timeline] object where events with the same image_bubble_id
+  /// are grouped together with the first event containing others in
+  /// unsigned['image_bubble_events'].
+  ///
+  /// This method follows the same pattern as [getTimeline] but groups events
+  /// by their image_bubble_id before creating the timeline.
+  Future<Timeline> getGroupedImageBubbleTimeline({
+    void Function(int index)? onChange,
+    void Function(int index)? onRemove,
+    void Function(int insertID)? onInsert,
+    void Function()? onNewEvent,
+    void Function()? onUpdate,
+    String? eventContextId,
+  }) async {
+    await postLoad();
+
+    List<Event> events;
+
+    if (!isArchived) {
+      events = await client.database?.getEventList(
+            this,
+            limit: defaultHistoryCount,
+          ) ??
+          <Event>[];
+    } else {
+      final archive = client.getArchiveRoomFromCache(id);
+      events = archive?.timeline.events.toList() ?? [];
+      for (var i = 0; i < events.length; i++) {
+        // Try to decrypt encrypted events but don't update the database.
+        if (encrypted && client.encryptionEnabled) {
+          if (events[i].type == EventTypes.Encrypted) {
+            events[i] = await client.encryption!.decryptRoomEvent(
+              events[i],
+            );
+          }
+        }
+      }
+    }
+
+    var chunk = TimelineChunk(events: events);
+    // Load the timeline around eventContextId if set
+    if (eventContextId != null) {
+      if (!events.any((Event event) => event.eventId == eventContextId)) {
+        chunk =
+            await getEventContext(eventContextId) ?? TimelineChunk(events: []);
+      }
+    }
+
+    // Fetch all users from database we have got here.
+    if (eventContextId == null) {
+      for (final event in events) {
+        if (getState(EventTypes.RoomMember, event.senderId) != null) continue;
+        final dbUser = await client.database?.getUser(event.senderId, this);
+        if (dbUser != null) setState(dbUser);
+      }
+    }
+
+    // Try again to decrypt encrypted events and update the database.
+    if (encrypted && client.encryptionEnabled) {
+      // decrypt messages
+      for (var i = 0; i < chunk.events.length; i++) {
+        if (chunk.events[i].type == EventTypes.Encrypted) {
+          if (eventContextId != null) {
+            // for the fragmented timeline, we don't cache the decrypted
+            //message in the database
+            chunk.events[i] = await client.encryption!.decryptRoomEvent(
+              chunk.events[i],
+            );
+          } else if (client.database != null) {
+            // else, we need the database
+            await client.database?.transaction(() async {
+              for (var i = 0; i < chunk.events.length; i++) {
+                if (chunk.events[i].content['can_request_session'] == true) {
+                  chunk.events[i] = await client.encryption!.decryptRoomEvent(
+                    chunk.events[i],
+                    store: !isArchived,
+                    updateType: EventUpdateType.history,
+                  );
+                }
+              }
+            });
+          }
+        }
+      }
+    }
+
+    // Group events by image_bubble_id
+    final groupedEvents = _groupEventsByImageBubbleId(chunk.events);
+    chunk = TimelineChunk(events: groupedEvents);
+
+    final timeline = Timeline(
+        room: this,
+        chunk: chunk,
+        onChange: onChange,
+        onRemove: onRemove,
+        onInsert: onInsert,
+        onNewEvent: onNewEvent,
+        onUpdate: onUpdate);
+    return timeline;
+  }
+
+  /// Internal method to group events by image_bubble_id
+  /// Events without image_bubble_id are returned as-is
+  /// Events with the same image_bubble_id are grouped with the first event
+  /// containing the others in unsigned['image_bubble_events']
+  List<Event> _groupEventsByImageBubbleId(List<Event> events) {
+    final Map<String, List<Event>> grouped = {};
+    final List<Event> ungrouped = [];
+
+    // Separate events with and without image_bubble_id
+    for (final event in events) {
+      final bubbleId = event.imageBubbleId();
+      if (bubbleId != null) {
+        grouped.putIfAbsent(bubbleId, () => []).add(event);
+      } else {
+        ungrouped.add(event);
+      }
+    }
+
+    // Sort events in each group by timestamp
+    for (final key in grouped.keys) {
+      grouped[key]!.sort(
+        (a, b) => a.originServerTs.compareTo(b.originServerTs),
+      );
+    }
+
+    // Create grouped events
+    final List<Event> result = [];
+
+    // Process events in their original order, but group them
+    final Set<String> processedBubbleIds = {};
+
+    for (final event in events) {
+      final bubbleId = event.imageBubbleId();
+
+      if (bubbleId == null) {
+        // Event without image_bubble_id, add as-is
+        result.add(event);
+      } else if (!processedBubbleIds.contains(bubbleId)) {
+        // First event of this group
+        processedBubbleIds.add(bubbleId);
+        final eventsList = grouped[bubbleId]!;
+
+        if (eventsList.length > 1) {
+          final firstEvent = eventsList.first;
+          final otherEvents = eventsList.sublist(1);
+
+          // Create a modified copy of the first event with grouped events in unsigned
+          final modifiedEvent = Event.fromJson(firstEvent.toJson(), this);
+          modifiedEvent.unsigned ??= {};
+          modifiedEvent.unsigned!['image_bubble_events'] =
+              otherEvents.map((e) => e.toJson()).toList();
+
+          result.add(modifiedEvent);
+        } else {
+          // Single event in group, add as-is
+          result.add(eventsList.first);
+        }
+      }
+      // Skip events that are part of an already processed group
+    }
+
+    return result;
+  }
+
   /// Returns all participants for this room. With lazy loading this
   /// list may not be complete. Use [requestParticipants] in this
   /// case.
