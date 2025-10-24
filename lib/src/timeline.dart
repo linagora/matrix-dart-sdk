@@ -146,10 +146,10 @@ class Timeline {
             onInsert?.call(i);
           }
         } else {
-          events.insertAll(0, eventsFromStore);
-          final startIndex = eventsFromStore.length;
-          final endIndex = 0;
-          for (var i = startIndex; i > endIndex; i--) {
+          final startIndex = events.length;
+          events.addAll(eventsFromStore);
+          final endIndex = events.length;
+          for (var i = startIndex; i < endIndex; i++) {
             onInsert?.call(i);
           }
         }
@@ -261,10 +261,11 @@ class Timeline {
       }
     } else {
       chunk.nextBatch = newNextBatch ?? '';
-      chunk.events.insertAll(0, newEvents.reversed);
+      final offset = chunk.events.length;
+      chunk.events.addAll(newEvents);
 
       for (var i = 0; i < newEvents.length; i++) {
-        onInsert?.call(i);
+        onInsert?.call(i + offset);
       }
     }
 
@@ -377,7 +378,7 @@ class Timeline {
   /// Set the read marker to the last synced event in this timeline.
   Future<void> setReadMarker({String? eventId, bool? public}) async {
     eventId ??=
-        events.firstWhereOrNull((event) => event.status.isSynced)?.eventId;
+        events.lastWhereOrNull((event) => event.status.isSynced)?.eventId;
     if (eventId == null) return;
     return room.setReadMarker(eventId, mRead: eventId, public: public);
   }
