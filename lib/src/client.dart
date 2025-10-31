@@ -76,6 +76,21 @@ class Client extends MatrixApi {
 
   Set<String> roomPreviewLastEvents;
 
+  /// Optional filter callback to determine which events can be shown as lastEvent.
+  /// Return true to include the event, false to exclude it.
+  ///
+  /// If null, defaults to filtering out redacted events only.
+  ///
+  /// Example usage:
+  /// ```dart
+  /// client.roomPreviewEventFilter = (event) {
+  ///   if (event.redacted) return false;
+  ///   if (event.messageType == 'm.room.verification.request') return false;
+  ///   return true;
+  /// };
+  /// ```
+  bool Function(Event event)? roomPreviewEventFilter;
+
   Set<String> supportedLoginTypes;
 
   int sendMessageTimeoutSeconds;
@@ -2513,9 +2528,13 @@ class Client extends MatrixApi {
               ),
             );
 
-            // Invalidate lastEvent cache if the redacted event was the lastEvent
+            // Recalculate lastEvent from timeline if the redacted event was the lastEvent
             if (redactedLastEvent) {
-              room.invalidateLastEventCache();
+              // Recalculate from database timeline to find the next most recent event
+              room.recalculateLastEventFromTimeline().then((_) {
+                // Reorder rooms after finding new lastEvent
+                _sortRooms();
+              });
             }
           }
         } else {

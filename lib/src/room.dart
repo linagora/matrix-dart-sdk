@@ -408,6 +408,85 @@ class Room {
     _cachedLastEvent = null;
   }
 
+  /// Applies the client's roomPreviewEventFilter, or defaults to filtering redacted events.
+  /// Returns true if the event should be included as a candidate for lastEvent.
+  bool _applyEventFilter(Event event) {
+    final filter = client.roomPreviewEventFilter;
+    if (filter != null) {
+      return filter(event);
+    }
+    // Default: exclude redacted events
+    return !event.redacted;
+  }
+
+  /// Recalculates lastEvent by querying the database timeline and comparing with state events.
+  /// This is called when the current lastEvent is deleted/redacted to find the next most recent event.
+  ///
+  /// The method:
+  /// 1. Queries database for recent timeline events
+  /// 2. Queries state events from memory
+  /// 3. Filters both using roomPreviewEventFilter
+  /// 4. Compares timestamps and picks the most recent
+  /// 5. Updates the cache
+  Future<void> recalculateLastEventFromTimeline() async {
+    final db = client.database;
+    Event? mostRecentFromTimeline;
+
+    if (db != null) {
+      // Get last 50 events from database timeline
+      // This is enough to find a non-deleted message in most cases
+      final events = await db.getEventList(this, start: 0, limit: 50);
+
+      // Filter: only preview events that pass the filter
+      final candidateEvents = events.where((event) =>
+          client.roomPreviewLastEvents.contains(event.type) &&
+          _applyEventFilter(event));
+
+      // Find most recent from timeline by timestamp
+      for (final event in candidateEvents) {
+        if (mostRecentFromTimeline == null ||
+            event.originServerTs.millisecondsSinceEpoch >
+                mostRecentFromTimeline.originServerTs.millisecondsSinceEpoch) {
+          mostRecentFromTimeline = event;
+        }
+      }
+    }
+
+    // Get most recent from states (already in memory)
+    Event? mostRecentFromStates;
+    final stateEvents = client.roomPreviewLastEvents
+        .map(getState)
+        .whereType<Event>()
+        .where(_applyEventFilter);
+
+    for (final event in stateEvents) {
+      if (mostRecentFromStates == null ||
+          event.originServerTs.millisecondsSinceEpoch >
+              mostRecentFromStates.originServerTs.millisecondsSinceEpoch) {
+        mostRecentFromStates = event;
+      }
+    }
+
+    // Compare timeline and state events, pick the truly most recent
+    Event? mostRecent;
+    if (mostRecentFromTimeline == null) {
+      mostRecent = mostRecentFromStates;
+    } else if (mostRecentFromStates == null) {
+      mostRecent = mostRecentFromTimeline;
+    } else {
+      // Both exist, compare timestamps
+      mostRecent =
+          mostRecentFromTimeline.originServerTs.millisecondsSinceEpoch >
+                  mostRecentFromStates.originServerTs.millisecondsSinceEpoch
+              ? mostRecentFromTimeline
+              : mostRecentFromStates;
+    }
+
+    // Update cache with result (may be null if no valid events found)
+    _cachedLastEvent = mostRecent;
+    _lastEventCacheValid = true;
+  }
+
   Event? get lastEvent {
     // Return cached value if valid
     if (_lastEventCacheValid && _cachedLastEvent != null) {
@@ -422,8 +501,10 @@ class Room {
     // perfect, it is only used for the room preview in the room list and sorting
     // said room list, so it should be good enough.
     var lastTime = DateTime.fromMillisecondsSinceEpoch(0);
-    final lastEvents =
-        client.roomPreviewLastEvents.map(getState).whereType<Event>();
+    final lastEvents = client.roomPreviewLastEvents
+        .map(getState)
+        .whereType<Event>()
+        .where(_applyEventFilter); // Filter out redacted/unwanted events
 
     var lastEvent = lastEvents.isEmpty
         ? null
@@ -443,6 +524,8 @@ class Room {
       states.forEach((final String key, final entry) {
         final state = entry[''];
         if (state == null) return;
+        // Apply filter to fallback events as well
+        if (!_applyEventFilter(state)) return;
         if (state.originServerTs.millisecondsSinceEpoch >
             lastTime.millisecondsSinceEpoch) {
           lastTime = state.originServerTs;
