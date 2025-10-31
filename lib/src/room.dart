@@ -424,11 +424,10 @@ class Room {
   /// Returns true if the event should be included as a candidate for lastEvent.
   bool _applyEventFilter(Event event) {
     final filter = client.roomPreviewEventFilter;
-    if (filter != null) {
-      return filter(event);
-    }
-    // Default: exclude redacted events
-    return !event.redacted;
+    final hasCustomFilter = filter != null;
+    final result = filter != null ? filter(event) : !event.redacted;
+    print('[Filter] Event ${event.eventId}: redacted=${event.redacted}, customFilter=$hasCustomFilter, result=$result');
+    return result;
   }
 
   /// Recalculates lastEvent by querying the database timeline and comparing with state events.
@@ -441,6 +440,7 @@ class Room {
   /// 4. Compares timestamps and picks the most recent
   /// 5. Updates the cache
   Future<void> recalculateLastEventFromTimeline() async {
+    print('[Recalculate] Room $id: Starting recalculation from timeline');
     final db = client.database;
     Event? mostRecentFromTimeline;
 
@@ -448,11 +448,13 @@ class Room {
       // Get last 50 events from database timeline
       // This is enough to find a non-deleted message in most cases
       final events = await db.getEventList(this, start: 0, limit: 50);
+      print('[Recalculate] Room $id: Got ${events.length} events from database');
 
       // Filter: only preview events that pass the filter
       final candidateEvents = events.where((event) =>
           client.roomPreviewLastEvents.contains(event.type) &&
-          _applyEventFilter(event));
+          _applyEventFilter(event)).toList();
+      print('[Recalculate] Room $id: After filtering, ${candidateEvents.length} candidates');
 
       // Find most recent from timeline by timestamp
       for (final event in candidateEvents) {
@@ -462,6 +464,9 @@ class Room {
           mostRecentFromTimeline = event;
         }
       }
+      print('[Recalculate] Room $id: Most recent from timeline=${mostRecentFromTimeline?.eventId}');
+    } else {
+      print('[Recalculate] Room $id: No database available');
     }
 
     // Get most recent from states (already in memory)
@@ -469,7 +474,8 @@ class Room {
     final stateEvents = client.roomPreviewLastEvents
         .map(getState)
         .whereType<Event>()
-        .where(_applyEventFilter);
+        .where(_applyEventFilter).toList();
+    print('[Recalculate] Room $id: Got ${stateEvents.length} state events');
 
     for (final event in stateEvents) {
       if (mostRecentFromStates == null ||
@@ -478,6 +484,7 @@ class Room {
         mostRecentFromStates = event;
       }
     }
+    print('[Recalculate] Room $id: Most recent from states=${mostRecentFromStates?.eventId}');
 
     // Compare timeline and state events, pick the truly most recent
     Event? mostRecent;
@@ -497,20 +504,29 @@ class Room {
     // Update cache with result (may be null if no valid events found)
     _cachedLastEvent = mostRecent;
     _lastEventCacheValid = true;
+    print('[Recalculate] Room $id: Final result=${mostRecent?.eventId}, redacted=${mostRecent?.redacted}');
   }
 
   Event? get lastEvent {
+    print('[LastEvent] Room $id: Getting lastEvent, cacheValid=$_lastEventCacheValid, cached=${_cachedLastEvent?.eventId}');
+
     // Return cached value if valid AND it still passes the filter
     // This prevents showing redacted events that became redacted after caching
     if (_lastEventCacheValid && _cachedLastEvent != null) {
-      if (_applyEventFilter(_cachedLastEvent!)) {
+      final passesFilter = _applyEventFilter(_cachedLastEvent!);
+      print('[LastEvent] Room $id: Cached event ${_cachedLastEvent!.eventId}, redacted=${_cachedLastEvent!.redacted}, passesFilter=$passesFilter');
+
+      if (passesFilter) {
+        print('[LastEvent] Room $id: Returning cached event');
         return _cachedLastEvent;
       } else {
         // Cached event no longer valid (e.g., became redacted)
         // Trigger async recalculation from timeline but don't block
+        print('[LastEvent] Room $id: Cached event FAILED filter, invalidating');
         invalidateLastEventCache();
         // Trigger background recalculation with database query
         recalculateLastEventFromTimeline().then((_) {
+          print('[LastEvent] Room $id: Recalculation complete, new lastEvent=${_cachedLastEvent?.eventId}');
           // Notify room update after recalculation
           onUpdate.add(id);
         });
@@ -521,12 +537,15 @@ class Room {
     // If cache is invalid but we have a cached value, check if it still passes filter
     // This prevents the room from disappearing during async recalculation
     if (!_lastEventCacheValid && _cachedLastEvent != null) {
+      print('[LastEvent] Room $id: Cache invalid, checking stale cache ${_cachedLastEvent!.eventId}');
       if (_applyEventFilter(_cachedLastEvent!)) {
         // Return stale cache temporarily to prevent room disappearing
         // The async recalculation will update it soon
+        print('[LastEvent] Room $id: Returning STALE cache temporarily');
         return _cachedLastEvent;
       }
       // If cached event doesn't pass filter, clear it and fall through to recalculation
+      print('[LastEvent] Room $id: Stale cache FAILED filter, clearing');
       _cachedLastEvent = null;
     }
 
@@ -575,6 +594,7 @@ class Room {
     _cachedLastEvent = lastEvent;
     _lastEventCacheValid = true;
 
+    print('[LastEvent] Room $id: Recalculated from states, result=${lastEvent?.eventId}, redacted=${lastEvent?.redacted}');
     return lastEvent;
   }
 

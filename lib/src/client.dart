@@ -2512,16 +2512,19 @@ class Client extends MatrixApi {
         if (stateEvent.type == EventTypes.Redaction) {
           final String? redacts = eventUpdate.content.tryGet<String>('redacts');
           if (redacts != null) {
+            print('[Redaction] Room ${room.id}: Redacting event $redacts');
             var redactedLastEvent = false;
             // Check if the redacted event is the current lastEvent
             if (room.lastEvent?.eventId == redacts) {
               redactedLastEvent = true;
+              print('[Redaction] Room ${room.id}: This WAS the lastEvent!');
             }
 
             room.states.forEach(
               (String key, Map<String, Event> states) => states.forEach(
                 (String key, Event state) {
                   if (state.eventId == redacts) {
+                    print('[Redaction] Room ${room.id}: Marking event ${state.eventId} as redacted');
                     state.setRedactionEvent(stateEvent);
                   }
                 },
@@ -2530,12 +2533,15 @@ class Client extends MatrixApi {
 
             // Always invalidate cache when any event is redacted in this room
             // This ensures deleted messages don't appear in room preview
+            print('[Redaction] Room ${room.id}: Invalidating cache');
             room.invalidateLastEventCache();
 
             // Recalculate and sort immediately if it was the lastEvent
             if (redactedLastEvent) {
+              print('[Redaction] Room ${room.id}: Starting recalculation and sort');
               // Use unawaited to avoid blocking, but sort will happen after recalculation
               unawaited(room.recalculateLastEventFromTimeline().then((_) {
+                print('[Redaction] Room ${room.id}: Recalculation done, sorting rooms');
                 _sortRooms();
                 // Notify room update to refresh UI
                 room.onUpdate.add(room.id);
