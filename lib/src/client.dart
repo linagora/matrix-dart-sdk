@@ -2497,6 +2497,12 @@ class Client extends MatrixApi {
         if (stateEvent.type == EventTypes.Redaction) {
           final String? redacts = eventUpdate.content.tryGet<String>('redacts');
           if (redacts != null) {
+            var redactedLastEvent = false;
+            // Check if the redacted event is the current lastEvent
+            if (room.lastEvent?.eventId == redacts) {
+              redactedLastEvent = true;
+            }
+
             room.states.forEach(
               (String key, Map<String, Event> states) => states.forEach(
                 (String key, Event state) {
@@ -2506,6 +2512,11 @@ class Client extends MatrixApi {
                 },
               ),
             );
+
+            // Invalidate lastEvent cache if the redacted event was the lastEvent
+            if (redactedLastEvent) {
+              room.invalidateLastEventCache();
+            }
           }
         } else {
           // We want to set state the in-memory cache for the room with the new event.

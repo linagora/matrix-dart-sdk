@@ -99,6 +99,14 @@ class Room {
 
   final _sendingQueue = <Completer>[];
 
+  /// Cached last event for performance optimization.
+  /// This avoids recalculating lastEvent on every room list rebuild.
+  Event? _cachedLastEvent;
+
+  /// Indicates whether the cached lastEvent is valid.
+  /// Set to false to force recalculation on next access.
+  bool _lastEventCacheValid = false;
+
   Map<String, dynamic> toJson() => {
         'id': id,
         'membership': membership.toString().split('.').last,
@@ -203,6 +211,9 @@ class Room {
     }
 
     (states[state.type] ??= {})[stateKey] = state;
+
+    // Update lastEvent cache if this is a preview event
+    _updateLastEventCache(state);
 
     client.onRoomState.add(state);
   }
@@ -366,7 +377,44 @@ class Room {
   /// Must be one of [all, mention]
   String? notificationSettings;
 
+  /// Updates the cached lastEvent if the given event is more recent.
+  /// Only updates for event types in [Client.roomPreviewLastEvents].
+  void _updateLastEventCache(Event event) {
+    // Only cache preview events
+    if (!client.roomPreviewLastEvents.contains(event.type)) {
+      return;
+    }
+
+    // Update cache if:
+    // 1. Cache is invalid
+    // 2. No cached event exists
+    // 3. New event is more recent than cached event
+    if (!_lastEventCacheValid ||
+        _cachedLastEvent == null ||
+        event.originServerTs.millisecondsSinceEpoch >
+            _cachedLastEvent!.originServerTs.millisecondsSinceEpoch ||
+        (event.originServerTs == _cachedLastEvent!.originServerTs &&
+            _cachedLastEvent!.type == EventTypes.Encrypted &&
+            event.type != EventTypes.Encrypted)) {
+      _cachedLastEvent = event;
+      _lastEventCacheValid = true;
+    }
+  }
+
+  /// Invalidates the cached lastEvent, forcing recalculation on next access.
+  /// Call this when an event is deleted/redacted or when cache needs to be refreshed.
+  void invalidateLastEventCache() {
+    _lastEventCacheValid = false;
+    _cachedLastEvent = null;
+  }
+
   Event? get lastEvent {
+    // Return cached value if valid
+    if (_lastEventCacheValid && _cachedLastEvent != null) {
+      return _cachedLastEvent;
+    }
+
+    // Recalculate lastEvent
     // as lastEvent calculation is based on the state events we unfortunately cannot
     // use sortOrder here: With many state events we just know which ones are the
     // newest ones, without knowing in which order they actually happened. As such,
@@ -402,6 +450,11 @@ class Room {
         }
       });
     }
+
+    // Update cache with the calculated value
+    _cachedLastEvent = lastEvent;
+    _lastEventCacheValid = true;
+
     return lastEvent;
   }
 
