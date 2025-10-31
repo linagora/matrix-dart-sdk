@@ -2537,6 +2537,8 @@ class Client extends MatrixApi {
               // Use unawaited to avoid blocking, but sort will happen after recalculation
               unawaited(room.recalculateLastEventFromTimeline().then((_) {
                 _sortRooms();
+                // Notify room update to refresh UI
+                room.onUpdate.add(room.id);
               }));
             }
           }

@@ -507,11 +507,30 @@ class Room {
         return _cachedLastEvent;
       } else {
         // Cached event no longer valid (e.g., became redacted)
+        // Trigger async recalculation from timeline but don't block
         invalidateLastEventCache();
+        // Trigger background recalculation with database query
+        recalculateLastEventFromTimeline().then((_) {
+          // Notify room update after recalculation
+          onUpdate.add(id);
+        });
+        // Fall through to synchronous recalculation as fallback
       }
     }
 
-    // Recalculate lastEvent
+    // If cache is invalid but we have a cached value, check if it still passes filter
+    // This prevents the room from disappearing during async recalculation
+    if (!_lastEventCacheValid && _cachedLastEvent != null) {
+      if (_applyEventFilter(_cachedLastEvent!)) {
+        // Return stale cache temporarily to prevent room disappearing
+        // The async recalculation will update it soon
+        return _cachedLastEvent;
+      }
+      // If cached event doesn't pass filter, clear it and fall through to recalculation
+      _cachedLastEvent = null;
+    }
+
+    // Recalculate lastEvent from states (synchronous fallback)
     // as lastEvent calculation is based on the state events we unfortunately cannot
     // use sortOrder here: With many state events we just know which ones are the
     // newest ones, without knowing in which order they actually happened. As such,
