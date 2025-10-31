@@ -151,8 +151,7 @@ class Room {
     }
     partial = false;
 
-    // Update cached filtered last event after loading all states
-    _updateFilteredLastEvent();
+    // No need to update cache here - the lazy getter will handle it on first access
   }
 
   /// Returns the [Event] for the given [typeKey] and optional [stateKey].
@@ -213,12 +212,6 @@ class Room {
     (states[state.type] ??= {})[stateKey] = state;
 
     client.onRoomState.add(state);
-
-    // Update cached filtered last event whenever any state changes.
-    // Since _updateFilteredLastEvent() now considers both message events AND
-    // state events (membership, name changes, etc.), we need to update the cache
-    // whenever ANY event arrives that could potentially be the new "last event".
-    _updateFilteredLastEvent();
   }
 
   /// ID of the fully read marker event.
@@ -423,22 +416,29 @@ class Room {
   /// This is much more efficient than [lastEvent] and supports filtering
   /// (e.g., excluding redacted events, errors, or specific event types).
   ///
-  /// The cache considers both message events (from [Client.roomPreviewLastEvents])
-  /// and all state events (membership, name changes, topic, etc.), comparing
-  /// timestamps to find the most recent event that passes the filter.
+  /// The cache is updated by [updateFilteredLastEventAsync] which is called:
+  /// - After redaction events (to find previous non-deleted messages from DB)
+  /// - On initial room load
+  /// - When manually refreshing the filter
   ///
-  /// The cache is automatically updated when new events arrive or room state changes.
   /// The filter used is configured via [Client.roomPreviewLastEventFilter].
-  ///
-  /// If no filter is set, this falls back to [lastEvent] behavior.
-  Event? get filteredLastEvent => _cachedFilteredLastEvent;
+  /// If no filter is set or cache is empty, this falls back to [lastEvent] behavior.
+  Event? get filteredLastEvent {
+    return _cachedFilteredLastEvent ?? lastEvent;
+  }
 
-  /// Updates the cached filtered last event.
-  /// This is called automatically when room state changes or new events arrive.
+  /// Updates the cached filtered last event asynchronously, including database timeline events.
   ///
-  /// You can also call this manually if you need to refresh the cache
-  /// (e.g., after changing the filter configuration).
-  void _updateFilteredLastEvent() {
+  /// This method searches both in-memory states AND the database for recent timeline events.
+  /// This is particularly important after message deletions, where the previous message
+  /// might only exist in the database and not in memory.
+  ///
+  /// **Important:** This method automatically triggers [onUpdate] if the last event changes,
+  /// ensuring the UI refreshes with the correct data. It's safe to call with `unawaited()`
+  /// as it will notify listeners when the database query completes.
+  ///
+  /// Call this after redaction events to ensure the last event is correctly updated.
+  Future<void> updateFilteredLastEventAsync() async {
     final filter = client.roomPreviewLastEventFilter;
 
     // If no filter is configured, use the regular lastEvent
@@ -447,7 +447,7 @@ class Room {
       return;
     }
 
-    // Get all candidate events from room states
+    // Get all candidate events from room states (in-memory)
     final candidateEvents = <Event>[];
 
     // 1. Check message events from roomPreviewLastEvents (Message, Encrypted, Sticker)
@@ -459,18 +459,15 @@ class Room {
     }
 
     // 2. Also check ALL other state events (membership, name changes, topic, etc.)
-    // This ensures we don't miss important room updates that might be more recent than messages
     states.forEach((final String type, final stateMap) {
       // Skip if we already added this event type from roomPreviewLastEvents
       if (client.roomPreviewLastEvents.contains(type)) return;
 
-      // Get the state event with empty state key (most common case)
       final event = stateMap[''];
       if (event != null) {
         candidateEvents.add(event);
       }
 
-      // Also consider other state keys (e.g., member events with user IDs)
       stateMap.forEach((stateKey, event) {
         if (stateKey != '') {
           candidateEvents.add(event);
@@ -478,8 +475,30 @@ class Room {
       });
     });
 
+    // 3. Also query the database for recent timeline events
+    // This is crucial for finding previous messages after the last message is deleted
+    final database = client.database;
+    if (database != null) {
+      try {
+        // Get the most recent 20 timeline events from the database
+        // This should be enough to find a valid last event after redactions
+        final timelineEvents = await database.getEventList(
+          this,
+          start: 0,
+          limit: 20,
+          onlySending: false,
+        );
+        candidateEvents.addAll(timelineEvents);
+      } catch (e, s) {
+        Logs().w(
+          '[updateFilteredLastEventAsync] Failed to query database for timeline events',
+          e,
+          s,
+        );
+      }
+    }
+
     // Find the most recent event that passes the filter
-    // Compare timestamps across both message events and state events
     Event? mostRecentFiltered;
     for (final event in candidateEvents) {
       if (filter(event)) {
@@ -491,7 +510,14 @@ class Room {
       }
     }
 
+    // Only update and trigger UI refresh if the last event actually changed
+    final previousLastEvent = _cachedFilteredLastEvent;
     _cachedFilteredLastEvent = mostRecentFiltered;
+
+    // Trigger UI update if the last event changed (important for chat list updates)
+    if (previousLastEvent?.eventId != mostRecentFiltered?.eventId) {
+      onUpdate.add(id);
+    }
   }
 
   /// Returns a list of all current typing users.

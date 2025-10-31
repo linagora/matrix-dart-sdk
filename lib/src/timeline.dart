@@ -543,6 +543,10 @@ class Timeline {
             room,
           ));
           onChange?.call(index);
+
+          // Update the room's last event cache after redaction
+          // This ensures the chat list shows the correct last message
+          unawaited(room.updateFilteredLastEventAsync());
         }
       }
 

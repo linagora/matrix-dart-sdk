@@ -121,17 +121,17 @@
 //   MultiFilterExample(this.client);
 
 //   // Switch to showing all events including system messages
-//   void showAllEvents() {
+//   Future<void> showAllEvents() async {
 //     client.roomPreviewLastEventFilter = EventFilters.excludeRedacted;
 
 //     // Refresh all room caches
 //     for (final room in client.rooms) {
-//       room._updateFilteredLastEvent();
+//       await room.updateFilteredLastEventAsync();
 //     }
 //   }
 
 //   // Switch to showing only messages from others (exclude your own)
-//   void showOnlyOthersMessages() {
+//   Future<void> showOnlyOthersMessages() async {
 //     client.roomPreviewLastEventFilter = EventFilters.combineAnd([
 //       EventFilters.excludeRedacted,
 //       EventFilters.onlyMessages,
@@ -140,17 +140,17 @@
 
 //     // Refresh all room caches
 //     for (final room in client.rooms) {
-//       room._updateFilteredLastEvent();
+//       await room.updateFilteredLastEventAsync();
 //     }
 //   }
 
 //   // Back to default
-//   void useDefaultFilter() {
+//   Future<void> useDefaultFilter() async {
 //     client.roomPreviewLastEventFilter = EventFilters.defaultChatListFilter;
 
 //     // Refresh all room caches
 //     for (final room in client.rooms) {
-//       room._updateFilteredLastEvent();
+//       await room.updateFilteredLastEventAsync();
 //     }
 //   }
 // }

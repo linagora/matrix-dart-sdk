@@ -2525,6 +2525,11 @@ class Client extends MatrixApi {
                 },
               ),
             );
+            // Update the filtered last event cache after marking event as redacted.
+            // This ensures the room's last event reflects the most recent non-redacted message,
+            // which keeps the chat list sorted correctly when messages are deleted.
+            // Use the async version to also check database for previous messages.
+            unawaited(runInRoot(room.updateFilteredLastEventAsync));
           }
         } else {
           // We want to set state the in-memory cache for the room with the new event.
