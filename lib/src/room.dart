@@ -151,7 +151,11 @@ class Room {
     }
     partial = false;
 
-    // No need to update cache here - the lazy getter will handle it on first access
+    // Initialize the filtered last event cache after loading all states
+    // This ensures the cache is ready when the room list is displayed
+    if (client.roomPreviewLastEventFilter != null) {
+      unawaited(updateFilteredLastEventAsync());
+    }
   }
 
   /// Returns the [Event] for the given [typeKey] and optional [stateKey].
@@ -424,6 +428,18 @@ class Room {
   /// The filter used is configured via [Client.roomPreviewLastEventFilter].
   /// If no filter is set or cache is empty, this falls back to [lastEvent] behavior.
   Event? get filteredLastEvent {
+    final filter = client.roomPreviewLastEventFilter;
+
+    // If cache is empty, apply filter to lastEvent as fallback
+    if (_cachedFilteredLastEvent == null && filter != null) {
+      final event = lastEvent;
+      if (event != null && filter(event)) {
+        return event;
+      }
+      // lastEvent doesn't pass filter (e.g., it's redacted), return null
+      return null;
+    }
+
     return _cachedFilteredLastEvent ?? lastEvent;
   }
 
@@ -441,9 +457,19 @@ class Room {
   Future<void> updateFilteredLastEventAsync() async {
     final filter = client.roomPreviewLastEventFilter;
 
+    print(
+      '[updateFilteredLastEventAsync] Room ${getLocalizedDisplayname()}: '
+      'Starting update. Filter set: ${filter != null}',
+    );
+
     // If no filter is configured, use the regular lastEvent
     if (filter == null) {
       _cachedFilteredLastEvent = lastEvent;
+      print(
+        '[updateFilteredLastEventAsync] Room ${getLocalizedDisplayname()}: '
+        'No filter configured! Using lastEvent: ${lastEvent?.eventId} (redacted: ${lastEvent?.redacted}). '
+        'Call client.validateLastEventFilter() to see how to fix this.',
+      );
       return;
     }
 
@@ -480,6 +506,10 @@ class Room {
     final database = client.database;
     if (database != null) {
       try {
+        print(
+          '[updateFilteredLastEventAsync] Room ${getLocalizedDisplayname()}: '
+          'Querying database for timeline events...',
+        );
         // Get the most recent 20 timeline events from the database
         // This should be enough to find a valid last event after redactions
         final timelineEvents = await database.getEventList(
@@ -487,6 +517,10 @@ class Room {
           start: 0,
           limit: 20,
           onlySending: false,
+        );
+        print(
+          '[updateFilteredLastEventAsync] Room ${getLocalizedDisplayname()}: '
+          'Found ${timelineEvents.length} timeline events in database',
         );
         candidateEvents.addAll(timelineEvents);
       } catch (e, s) {
@@ -496,19 +530,52 @@ class Room {
           s,
         );
       }
+    } else {
+      print(
+        '[updateFilteredLastEventAsync] Room ${getLocalizedDisplayname()}: '
+        'No database configured, skipping timeline query',
+      );
     }
 
     // Find the most recent event that passes the filter
+    print(
+      '[updateFilteredLastEventAsync] Room ${getLocalizedDisplayname()}: '
+      'Evaluating ${candidateEvents.length} total candidate events',
+    );
+
     Event? mostRecentFiltered;
+    var passedCount = 0;
+    var failedCount = 0;
+
     for (final event in candidateEvents) {
-      if (filter(event)) {
+      final passes = filter(event);
+      if (passes) {
+        passedCount++;
         if (mostRecentFiltered == null ||
             event.originServerTs.millisecondsSinceEpoch >
                 mostRecentFiltered.originServerTs.millisecondsSinceEpoch) {
+          print(
+            '[updateFilteredLastEventAsync] Room ${getLocalizedDisplayname()}: '
+            'New best candidate: ${event.eventId} (${event.type}) '
+            'redacted=${event.redacted} body="${event.body.substring(0, event.body.length > 30 ? 30 : event.body.length)}"',
+          );
           mostRecentFiltered = event;
         }
+      } else {
+        failedCount++;
+        print(
+          '[updateFilteredLastEventAsync] Room ${getLocalizedDisplayname()}: '
+          'Event filtered out: ${event.eventId} (${event.type}) '
+          'redacted=${event.redacted}',
+        );
       }
     }
+
+    print(
+      '[updateFilteredLastEventAsync] Room ${getLocalizedDisplayname()}: '
+      'Filter results: $passedCount passed, $failedCount failed. '
+      'Selected: ${mostRecentFiltered?.eventId ?? "none"}',
+    );
 
     // Only update and trigger UI refresh if the last event actually changed
     final previousLastEvent = _cachedFilteredLastEvent;
@@ -516,7 +583,17 @@ class Room {
 
     // Trigger UI update if the last event changed (important for chat list updates)
     if (previousLastEvent?.eventId != mostRecentFiltered?.eventId) {
+      print(
+        '[updateFilteredLastEventAsync] Room ${getLocalizedDisplayname()}: '
+        'Last event changed from ${previousLastEvent?.eventId} to ${mostRecentFiltered?.eventId}. '
+        'Triggering UI update.',
+      );
       onUpdate.add(id);
+    } else {
+      print(
+        '[updateFilteredLastEventAsync] Room ${getLocalizedDisplayname()}: '
+        'Last event unchanged, no UI update needed',
+      );
     }
   }
 
