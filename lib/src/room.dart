@@ -99,6 +99,11 @@ class Room {
 
   final _sendingQueue = <Completer>[];
 
+  /// Cached filtered last event for efficient chat list display.
+  /// This is automatically updated when new events arrive or room state changes.
+  /// Use [filteredLastEvent] getter to access this.
+  Event? _cachedFilteredLastEvent;
+
   Map<String, dynamic> toJson() => {
         'id': id,
         'membership': membership.toString().split('.').last,
@@ -145,6 +150,9 @@ class Room {
       startStaleCallsChecker(id);
     }
     partial = false;
+
+    // Update cached filtered last event after loading all states
+    _updateFilteredLastEvent();
   }
 
   /// Returns the [Event] for the given [typeKey] and optional [stateKey].
@@ -205,6 +213,12 @@ class Room {
     (states[state.type] ??= {})[stateKey] = state;
 
     client.onRoomState.add(state);
+
+    // Update cached filtered last event whenever any state changes.
+    // Since _updateFilteredLastEvent() now considers both message events AND
+    // state events (membership, name changes, etc.), we need to update the cache
+    // whenever ANY event arrives that could potentially be the new "last event".
+    _updateFilteredLastEvent();
   }
 
   /// ID of the fully read marker event.
@@ -405,6 +419,81 @@ class Room {
     return lastEvent;
   }
 
+  /// Returns the cached filtered last event for display in chat lists.
+  /// This is much more efficient than [lastEvent] and supports filtering
+  /// (e.g., excluding redacted events, errors, or specific event types).
+  ///
+  /// The cache considers both message events (from [Client.roomPreviewLastEvents])
+  /// and all state events (membership, name changes, topic, etc.), comparing
+  /// timestamps to find the most recent event that passes the filter.
+  ///
+  /// The cache is automatically updated when new events arrive or room state changes.
+  /// The filter used is configured via [Client.roomPreviewLastEventFilter].
+  ///
+  /// If no filter is set, this falls back to [lastEvent] behavior.
+  Event? get filteredLastEvent => _cachedFilteredLastEvent;
+
+  /// Updates the cached filtered last event.
+  /// This is called automatically when room state changes or new events arrive.
+  ///
+  /// You can also call this manually if you need to refresh the cache
+  /// (e.g., after changing the filter configuration).
+  void _updateFilteredLastEvent() {
+    final filter = client.roomPreviewLastEventFilter;
+
+    // If no filter is configured, use the regular lastEvent
+    if (filter == null) {
+      _cachedFilteredLastEvent = lastEvent;
+      return;
+    }
+
+    // Get all candidate events from room states
+    final candidateEvents = <Event>[];
+
+    // 1. Check message events from roomPreviewLastEvents (Message, Encrypted, Sticker)
+    for (final eventType in client.roomPreviewLastEvents) {
+      final event = getState(eventType);
+      if (event != null) {
+        candidateEvents.add(event);
+      }
+    }
+
+    // 2. Also check ALL other state events (membership, name changes, topic, etc.)
+    // This ensures we don't miss important room updates that might be more recent than messages
+    states.forEach((final String type, final stateMap) {
+      // Skip if we already added this event type from roomPreviewLastEvents
+      if (client.roomPreviewLastEvents.contains(type)) return;
+
+      // Get the state event with empty state key (most common case)
+      final event = stateMap[''];
+      if (event != null) {
+        candidateEvents.add(event);
+      }
+
+      // Also consider other state keys (e.g., member events with user IDs)
+      stateMap.forEach((stateKey, event) {
+        if (stateKey != '') {
+          candidateEvents.add(event);
+        }
+      });
+    });
+
+    // Find the most recent event that passes the filter
+    // Compare timestamps across both message events and state events
+    Event? mostRecentFiltered;
+    for (final event in candidateEvents) {
+      if (filter(event)) {
+        if (mostRecentFiltered == null ||
+            event.originServerTs.millisecondsSinceEpoch >
+                mostRecentFiltered.originServerTs.millisecondsSinceEpoch) {
+          mostRecentFiltered = event;
+        }
+      }
+    }
+
+    _cachedFilteredLastEvent = mostRecentFiltered;
+  }
+
   /// Returns a list of all current typing users.
   List<User> get typingUsers {
     final typingMxid = ephemerals['m.typing']?.content['user_ids'];
@@ -461,7 +550,18 @@ class Room {
   String get displayname => getLocalizedDisplayname();
 
   /// When the last message received.
-  DateTime get timeCreated => lastEvent?.originServerTs ?? DateTime.now();
+  ///
+  /// Uses [filteredLastEvent] when a filter is configured to ensure room sorting
+  /// matches what users see in the UI. Falls back to [lastEvent] when no filter is set.
+  /// This prevents rooms from staying at the top when their last message was redacted
+  /// or filtered out.
+  DateTime get timeCreated {
+    // Use filteredLastEvent if a filter is configured, otherwise use lastEvent
+    final event = client.roomPreviewLastEventFilter != null
+        ? filteredLastEvent
+        : lastEvent;
+    return event?.originServerTs ?? DateTime.now();
+  }
 
   /// Call the Matrix API to change the name of this room. Returns the event ID of the
   /// new m.room.name event.

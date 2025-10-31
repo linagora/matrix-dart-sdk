@@ -76,6 +76,25 @@ class Client extends MatrixApi {
 
   Set<String> roomPreviewLastEvents;
 
+  /// Optional filter function for filtering room preview last events in chat lists.
+  /// This is used by [Room.filteredLastEvent] to provide a cached, filtered
+  /// last event that excludes redacted events, errors, or other unwanted events.
+  ///
+  /// Example:
+  /// ```dart
+  /// client.roomPreviewLastEventFilter = (event) {
+  ///   return !event.redacted &&
+  ///          event.type == EventTypes.Message &&
+  ///          event.status == EventStatus.synced;
+  /// };
+  /// ```
+  ///
+  /// You can use pre-built filters from [EventFilters]:
+  /// ```dart
+  /// client.roomPreviewLastEventFilter = EventFilters.defaultChatListFilter;
+  /// ```
+  EventFilterPredicate? roomPreviewLastEventFilter;
+
   Set<String> supportedLoginTypes;
 
   int sendMessageTimeoutSeconds;
