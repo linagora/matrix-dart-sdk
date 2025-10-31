@@ -385,6 +385,18 @@ class Room {
       return;
     }
 
+    // Check if event passes the filter (not redacted, etc.)
+    if (!_applyEventFilter(event)) {
+      // If the new event doesn't pass the filter, but it would be the most recent,
+      // we need to invalidate the cache to force recalculation
+      if (_cachedLastEvent == null ||
+          event.originServerTs.millisecondsSinceEpoch >=
+              _cachedLastEvent!.originServerTs.millisecondsSinceEpoch) {
+        invalidateLastEventCache();
+      }
+      return;
+    }
+
     // Update cache if:
     // 1. Cache is invalid
     // 2. No cached event exists
@@ -488,9 +500,15 @@ class Room {
   }
 
   Event? get lastEvent {
-    // Return cached value if valid
+    // Return cached value if valid AND it still passes the filter
+    // This prevents showing redacted events that became redacted after caching
     if (_lastEventCacheValid && _cachedLastEvent != null) {
-      return _cachedLastEvent;
+      if (_applyEventFilter(_cachedLastEvent!)) {
+        return _cachedLastEvent;
+      } else {
+        // Cached event no longer valid (e.g., became redacted)
+        invalidateLastEventCache();
+      }
     }
 
     // Recalculate lastEvent

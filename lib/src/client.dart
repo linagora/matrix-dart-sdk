@@ -2528,13 +2528,16 @@ class Client extends MatrixApi {
               ),
             );
 
-            // Recalculate lastEvent from timeline if the redacted event was the lastEvent
+            // Always invalidate cache when any event is redacted in this room
+            // This ensures deleted messages don't appear in room preview
+            room.invalidateLastEventCache();
+
+            // Recalculate and sort immediately if it was the lastEvent
             if (redactedLastEvent) {
-              // Recalculate from database timeline to find the next most recent event
-              room.recalculateLastEventFromTimeline().then((_) {
-                // Reorder rooms after finding new lastEvent
+              // Use unawaited to avoid blocking, but sort will happen after recalculation
+              unawaited(room.recalculateLastEventFromTimeline().then((_) {
                 _sortRooms();
-              });
+              }));
             }
           }
         } else {
