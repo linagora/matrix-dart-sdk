@@ -26,6 +26,7 @@ import 'package:matrix/matrix.dart';
 import 'package:matrix/src/utils/event_localizations.dart';
 import 'package:matrix/src/utils/html_to_text.dart';
 import 'package:matrix/src/utils/markdown.dart';
+import 'package:mime/mime.dart';
 
 abstract class RelationshipTypes {
   static const String reply = 'm.in_reply_to';
@@ -724,7 +725,14 @@ class Event extends MatrixEvent {
         throw ('Unable to decrypt file');
       }
     }
-    return MatrixFile(bytes: uint8list, name: body);
+
+    return MatrixFile(
+      bytes: uint8list,
+      name: getThumbnail
+          ? '$filename.thumbnail.${extensionFromMime(attachmentMimetype)}'
+          : filename,
+      mimeType: attachmentMimetype,
+    );
   }
 
   String get thumbnailFilename {
