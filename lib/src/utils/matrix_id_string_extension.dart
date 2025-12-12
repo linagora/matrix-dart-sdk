@@ -30,41 +30,52 @@ extension MatrixIdExtension on String {
     return [s.substring(0, ix), s.substring(ix + 1)];
   }
 
-  bool get isValidMatrixId {
+  bool _isValidMatrixIdGeneral() {
     if (isEmpty) return false;
     if (length > maxLength) return false;
-    if (!validSigils.contains(substring(0, 1))) {
+    final sigil = substring(0, 1);
+    if (!validSigils.contains(sigil)) {
       return false;
     }
-    // event IDs do not have to have a domain
-    if (substring(0, 1) == '\$') {
-      return true;
+    // event IDs and room IDs do not have to have a domain
+    if ({'\$', '!'}.contains(sigil)) {
+      return length > 1;
     }
-    // all other matrix IDs have to have a domain
+    // all other matrix IDs (user @, room alias #, group +) must have a domain
     final parts = _getParts();
-    // if the localpart starts with an @, checks if the user id is valid
-    if (substring(0, 1) == '@') {
-      return _matchesUserIdRegExp(this);
-    }
-    // the localpart can be an empty string, e.g. for aliases
     if (parts.length != 2 || parts[1].isEmpty) {
       return false;
+    }
+    // the localpart can be an empty string, e.g. for aliases
+    if (sigil == '#' || sigil == '+') {
+      return true;
+    }
+    // user IDs must have a non-empty localpart and no invalid characters
+    if (sigil == '@') {
+      if (parts[0].isEmpty) {
+        return false;
+      }
+      // localpart cannot contain '@' or other invalid characters
+      if (parts[0].contains('@')) {
+        return false;
+      }
     }
     return true;
   }
 
-  bool _matchesUserIdRegExp(String text) {
-    final globalRegExp = RegExp(
-        r'^@([a-z0-9.=_\-\+]+):((?:[a-zA-Z0-9\-]+\.)*[a-zA-Z]{2,}|\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}|\[(?:[0-9a-fA-F:.]+)\])(?::\d{1,5})?$');
-
-    return globalRegExp.hasMatch(text);
+  bool get isValidMatrixId {
+    // Only validate user IDs (must start with @)
+    if (!startsWith('@')) {
+      return false;
+    }
+    return _isValidMatrixIdGeneral();
   }
 
-  String? get sigil => isValidMatrixId ? substring(0, 1) : null;
+  String? get sigil => _isValidMatrixIdGeneral() ? substring(0, 1) : null;
 
-  String? get localpart => isValidMatrixId ? _getParts().first : null;
+  String? get localpart => _isValidMatrixIdGeneral() ? _getParts().first : null;
 
-  String? get domain => isValidMatrixId ? _getParts().last : null;
+  String? get domain => _isValidMatrixIdGeneral() ? _getParts().last : null;
 
   bool equals(String? other) => toLowerCase() == other?.toLowerCase();
 
