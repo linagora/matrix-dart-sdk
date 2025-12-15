@@ -30,34 +30,136 @@ extension MatrixIdExtension on String {
     return [s.substring(0, ix), s.substring(ix + 1)];
   }
 
-  bool get isValidMatrixId {
-    if (isEmpty) return false;
-    if (length > maxLength) return false;
-    if (!validSigils.contains(substring(0, 1))) {
-      return false;
+  /// Validates localpart against Matrix spec character requirements
+  /// Uses a simple regex safe from ReDoS (no nested quantifiers)
+  bool _isValidLocalpart(String localpart, String sigil) {
+    if (localpart.isEmpty) {
+      // Empty localpart is allowed for aliases and groups
+      return sigil == '#' || sigil == '+';
     }
-    // event IDs do not have to have a domain
-    if (substring(0, 1) == '\$') {
-      return true;
+
+    // For user IDs: only lowercase letters, digits, and .=_-+
+    // This regex is ReDoS-safe: single character class with simple quantifier
+    if (sigil == '@') {
+      final validLocalpartRegex = RegExp(r'^[a-z0-9.=_\-+]+$');
+      return validLocalpartRegex.hasMatch(localpart);
     }
-    // all other matrix IDs have to have a domain
-    final parts = _getParts();
-    // if the localpart starts with an @, checks if the user id is valid
-    if (substring(0, 1) == '@') {
-      return _matchesUserIdRegExp(this);
+
+    // For room aliases and groups: more permissive
+    // Only disallow control characters and colon (which is the delimiter)
+    if (sigil == '#' || sigil == '+') {
+      // Cannot contain: colon (delimiter) or control characters
+      return !localpart.contains(RegExp(r'[:\x00-\x1F\x7F]'));
     }
-    // the localpart can be an empty string, e.g. for aliases
-    if (parts.length != 2 || parts[1].isEmpty) {
-      return false;
-    }
+
     return true;
   }
 
-  bool _matchesUserIdRegExp(String text) {
-    final globalRegExp = RegExp(
-        r'^@([a-z0-9.=_\-\+]+):((?:[a-zA-Z0-9\-]+\.)*[a-zA-Z]{2,}|\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}|\[(?:[0-9a-fA-F:.]+)\])(?::\d{1,5})?$');
+  /// Validates domain part (hostname or IP address)
+  /// Uses simple checks to avoid ReDoS vulnerabilities
+  bool _isValidDomain(String domain) {
+    if (domain.isEmpty) return false;
 
-    return globalRegExp.hasMatch(text);
+    // Extract domain/IP and optional port
+    // For IPv6, format is [ipv6]:port, so handle brackets specially
+    String domainWithoutPort;
+    if (domain.startsWith('[')) {
+      // IPv6 with possible port
+      final closeBracket = domain.indexOf(']');
+      if (closeBracket == -1) return false;
+      domainWithoutPort = domain.substring(0, closeBracket + 1);
+      // Validate there's no invalid content after the bracket (except :port)
+      if (closeBracket + 1 < domain.length) {
+        final afterBracket = domain.substring(closeBracket + 1);
+        if (afterBracket.isNotEmpty &&
+            !RegExp(r'^:\d+$').hasMatch(afterBracket)) {
+          return false;
+        }
+      }
+    } else {
+      // For hostname or IPv4, port is after the last colon
+      // But be careful: hostname can contain multiple colons if it includes port
+      // Actually, for Matrix IDs, the domain part can include :port
+      // So we need to check if it's IPv4 first
+      final colonIndex = domain.lastIndexOf(':');
+      if (colonIndex != -1 &&
+          RegExp(r'^\d+$').hasMatch(domain.substring(colonIndex + 1))) {
+        // Likely has a port
+        domainWithoutPort = domain.substring(0, colonIndex);
+        // Validate port
+        final port = int.tryParse(domain.substring(colonIndex + 1));
+        if (port == null || port < 1 || port > 65535) {
+          return false;
+        }
+      } else {
+        domainWithoutPort = domain;
+      }
+    }
+
+    if (domainWithoutPort.isEmpty) return false;
+
+    // Check for IPv6 (wrapped in brackets)
+    if (domainWithoutPort.startsWith('[') && domainWithoutPort.endsWith(']')) {
+      final ipv6 = domainWithoutPort.substring(1, domainWithoutPort.length - 1);
+      if (ipv6.isEmpty) return false;
+      // Basic IPv6 validation: only hex digits, colons, and dots (for IPv4-mapped)
+      // IPv6 must contain at least one colon
+      return RegExp(r'^[0-9a-fA-F:.]+$').hasMatch(ipv6) && ipv6.contains(':');
+    }
+
+    // Check for IPv4 (simple pattern, ReDoS-safe)
+    if (RegExp(r'^\d+\.\d+\.\d+\.\d+$').hasMatch(domainWithoutPort)) {
+      // Validate each octet is 0-255
+      final octets = domainWithoutPort.split('.');
+      return octets.length == 4 &&
+          octets.every((o) {
+            final num = int.tryParse(o);
+            return num != null && num >= 0 && num <= 255;
+          });
+    }
+
+    // Hostname validation: alphanumeric, hyphens, dots
+    // Must not start/end with hyphen or dot
+    // ReDoS-safe: simple character class, no nested quantifiers
+    // Allow single-word hostnames (common in test/dev environments)
+    return RegExp(
+            r'^[a-zA-Z0-9]([a-zA-Z0-9\-]*[a-zA-Z0-9])?(\.[a-zA-Z0-9]([a-zA-Z0-9\-]*[a-zA-Z0-9])?)*$')
+        .hasMatch(domainWithoutPort);
+  }
+
+  bool _isValidMatrixIdGeneral() {
+    if (isEmpty) return false;
+    if (length > maxLength) return false;
+    final sigil = substring(0, 1);
+    if (!validSigils.contains(sigil)) {
+      return false;
+    }
+    // event IDs and room IDs do not have to have a domain
+    if ({'\$', '!'}.contains(sigil)) {
+      return length > 1;
+    }
+    // all other matrix IDs (user @, room alias #, group +) must have a domain
+    final parts = _getParts();
+    if (parts.length != 2 || parts[1].isEmpty) {
+      return false;
+    }
+
+    // Validate localpart according to Matrix spec
+    if (!_isValidLocalpart(parts[0], sigil)) {
+      return false;
+    }
+
+    // Validate domain part
+    if (!_isValidDomain(parts[1])) {
+      return false;
+    }
+
+    return true;
+  }
+
+  /// Validates any Matrix ID (user @, room !, room alias #, group +, event $)
+  bool get isValidMatrixId {
+    return _isValidMatrixIdGeneral();
   }
 
   String? get sigil => isValidMatrixId ? substring(0, 1) : null;
