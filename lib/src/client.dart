@@ -76,6 +76,21 @@ class Client extends MatrixApi {
 
   Set<String> roomPreviewLastEvents;
 
+  /// Optional filter callback to determine which events can be shown as lastEvent.
+  /// Return true to include the event, false to exclude it.
+  ///
+  /// If null, defaults to filtering out redacted events only.
+  ///
+  /// Example usage:
+  /// ```dart
+  /// client.roomPreviewEventFilter = (event) {
+  ///   if (event.redacted) return false;
+  ///   if (event.messageType == 'm.room.verification.request') return false;
+  ///   return true;
+  /// };
+  /// ```
+  bool Function(Event event)? roomPreviewEventFilter;
+
   Set<String> supportedLoginTypes;
 
   int sendMessageTimeoutSeconds;
@@ -2497,15 +2512,41 @@ class Client extends MatrixApi {
         if (stateEvent.type == EventTypes.Redaction) {
           final String? redacts = eventUpdate.content.tryGet<String>('redacts');
           if (redacts != null) {
+            print('[Redaction] Room ${room.id}: Redacting event $redacts');
+            var redactedLastEvent = false;
+            // Check if the redacted event is the current lastEvent
+            if (room.lastEvent?.eventId == redacts) {
+              redactedLastEvent = true;
+              print('[Redaction] Room ${room.id}: This WAS the lastEvent!');
+            }
+
             room.states.forEach(
               (String key, Map<String, Event> states) => states.forEach(
                 (String key, Event state) {
                   if (state.eventId == redacts) {
+                    print('[Redaction] Room ${room.id}: Marking event ${state.eventId} as redacted');
                     state.setRedactionEvent(stateEvent);
                   }
                 },
               ),
             );
+
+            // Always invalidate cache when any event is redacted in this room
+            // This ensures deleted messages don't appear in room preview
+            print('[Redaction] Room ${room.id}: Invalidating cache');
+            room.invalidateLastEventCache();
+
+            // Recalculate and sort immediately if it was the lastEvent
+            if (redactedLastEvent) {
+              print('[Redaction] Room ${room.id}: Starting recalculation and sort');
+              // Use unawaited to avoid blocking, but sort will happen after recalculation
+              unawaited(room.recalculateLastEventFromTimeline().then((_) {
+                print('[Redaction] Room ${room.id}: Recalculation done, sorting rooms');
+                _sortRooms();
+                // Notify room update to refresh UI
+                room.onUpdate.add(room.id);
+              }));
+            }
           }
         } else {
           // We want to set state the in-memory cache for the room with the new event.
