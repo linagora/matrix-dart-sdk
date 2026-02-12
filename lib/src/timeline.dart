@@ -68,6 +68,80 @@ class Timeline {
     return _eventCache[id];
   }
 
+  /// Searches for the event in this timeline, including within grouped image_bubble_events.
+  /// If not found, requests from the server. Requested events are cached.
+  Future<Event?> getEventByIdWithImageBubbleGrouping(String id) async {
+    // First search in main events
+    for (final event in events) {
+      if (event.eventId == id) return event;
+
+      // Also search within grouped events
+      final groupedEvents = event.unsigned?['image_bubble_events'];
+      if (groupedEvents is List) {
+        for (final groupedEventJson in groupedEvents) {
+          if (groupedEventJson is Map<String, dynamic> &&
+              groupedEventJson['event_id'] == id) {
+            return Event.fromJson(groupedEventJson, room);
+          }
+        }
+      }
+    }
+
+    if (_eventCache.containsKey(id)) return _eventCache[id];
+    final requestedEvent = await room.getEventById(id);
+    if (requestedEvent == null) return null;
+    _eventCache[id] = requestedEvent;
+    return _eventCache[id];
+  }
+
+  /// Extracts all events from a grouped event.
+  /// Returns a list containing the main event first, followed by all grouped events
+  /// from unsigned['image_bubble_events']. If the event has no grouped events,
+  /// returns a list containing only the main event.
+  List<Event> getAllEventsFromGroupedEvent(Event event) {
+    final List<Event> allEvents = [event];
+
+    // Check if this event has grouped events
+    final groupedEventsData = event.unsigned?['image_bubble_events'];
+    if (groupedEventsData is List) {
+      for (final groupedEventJson in groupedEventsData) {
+        if (groupedEventJson is Map<String, dynamic>) {
+          try {
+            final groupedEvent = Event.fromJson(groupedEventJson, room);
+            allEvents.add(groupedEvent);
+          } catch (e) {
+            Logs().w('Failed to parse grouped event from image_bubble_events', e);
+          }
+        }
+      }
+    }
+
+    return allEvents;
+  }
+
+  /// Extracts all grouped events (excluding the main event) from a grouped event.
+  /// Returns only the events stored in unsigned['image_bubble_events'].
+  /// If the event has no grouped events, returns an empty list.
+  List<Event> getGroupedEventsFromMainEvent(Event event) {
+    final List<Event> groupedEvents = [];
+
+    final groupedEventsData = event.unsigned?['image_bubble_events'];
+    if (groupedEventsData is List) {
+      for (final groupedEventJson in groupedEventsData) {
+        if (groupedEventJson is Map<String, dynamic>) {
+          try {
+            final groupedEvent = Event.fromJson(groupedEventJson, room);
+            groupedEvents.add(groupedEvent);
+          } catch (e) {
+            Logs().w('Failed to parse grouped event from image_bubble_events', e);
+          }
+        }
+      }
+    }
+
+    return groupedEvents;
+  }
+
   // When fetching history, we will collect them into the `_historyUpdates` set
   // first, and then only process all events at once, once we have the full history.
   // This ensures that the entire history fetching only triggers `onUpdate` only *once*,
@@ -96,6 +170,98 @@ class Timeline {
     isRequestingHistory = false;
   }
 
+  /// Requests historical events and groups them by image_bubble_id.
+  /// Events with the same image_bubble_id will be merged where the first event
+  /// contains subsequent events in unsigned['image_bubble_events'].
+  Future<void> requestHistoryWithImageBubbleGrouping({
+    int historyCount = Room.defaultHistoryCount,
+    StateFilter? filter,
+  }) async {
+    if (isRequestingHistory) {
+      return;
+    }
+
+    isRequestingHistory = true;
+
+    try {
+      final startLength = events.length;
+
+      await _requestEvents(
+        direction: Direction.b,
+        historyCount: historyCount,
+        filter: filter,
+      );
+
+      // Apply image_bubble_id grouping to the newly loaded events
+      _applyImageBubbleGrouping(startLength);
+
+    } finally {
+      isRequestingHistory = false;
+      onUpdate?.call();
+    }
+  }
+
+  /// Internal method to apply image_bubble_id grouping to events starting from a given index
+  void _applyImageBubbleGrouping(int fromIndex) {
+    if (fromIndex >= events.length) return;
+
+    // Group only the newly loaded events
+    final newEvents = events.sublist(fromIndex);
+    final Map<String, List<Event>> grouped = {};
+    final List<Event> nonGroupedEvents = [];
+
+    for (final event in newEvents) {
+      final bubbleId = event.imageBubbleId();
+      if (bubbleId != null) {
+        grouped.putIfAbsent(bubbleId, () => []).add(event);
+      } else {
+        nonGroupedEvents.add(event);
+      }
+    }
+
+    // Sort events in each group by timestamp
+    for (final key in grouped.keys) {
+      grouped[key]!.sort((a, b) => a.originServerTs.compareTo(b.originServerTs));
+    }
+
+    // Create grouped events
+    final List<Event> processedEvents = [];
+    final Set<String> processedBubbleIds = {};
+
+    for (final event in newEvents) {
+      final bubbleId = event.imageBubbleId();
+
+      if (bubbleId == null) {
+        // No bubble ID, add event as-is
+        processedEvents.add(event);
+      } else if (!processedBubbleIds.contains(bubbleId)) {
+        // First occurrence of this bubble ID
+        processedBubbleIds.add(bubbleId);
+        final eventsList = grouped[bubbleId]!;
+
+        if (eventsList.length > 1) {
+          // Multiple events in group - create grouped event
+          final firstEvent = eventsList.first;
+          final otherEvents = eventsList.sublist(1);
+
+          final modifiedEvent = Event.fromJson(firstEvent.toJson(), room);
+          modifiedEvent.unsigned ??= {};
+          modifiedEvent.unsigned!['image_bubble_events'] =
+              otherEvents.map((e) => e.toJson()).toList();
+
+          processedEvents.add(modifiedEvent);
+        } else {
+          // Single event in group
+          processedEvents.add(eventsList.first);
+        }
+      }
+      // Skip subsequent events with same bubble ID (already processed)
+    }
+
+    // Replace the newly loaded events with grouped versions
+    events.replaceRange(fromIndex, events.length, processedEvents);
+  }
+
   bool get canRequestFuture => !allowNewEvent;
 
   Future<void> requestFuture(
@@ -108,6 +274,92 @@ class Timeline {
     isRequestingFuture = true;
     await _requestEvents(direction: Direction.f, historyCount: historyCount);
     isRequestingFuture = false;
+  }
+
+  /// Requests future events and groups them by image_bubble_id.
+  /// Events with the same image_bubble_id will be merged where the first event
+  /// contains subsequent events in unsigned['image_bubble_events'].
+  Future<void> requestFutureWithImageBubbleGrouping(
+      {int historyCount = Room.defaultHistoryCount}) async {
+    if (allowNewEvent) {
+      return; // we shouldn't force to add new events if they will autatically be added
+    }
+
+    if (isRequestingFuture) return;
+    isRequestingFuture = true;
+
+    try {
+      final startLength = events.length;
+
+      await _requestEvents(direction: Direction.f, historyCount: historyCount);
+
+      // Apply image_bubble_id grouping to the newly loaded events
+      // For forward direction, we need to group from index 0 since events are inserted at the beginning
+      _applyImageBubbleGroupingForward(startLength);
+
+    } finally {
+      isRequestingFuture = false;
+      onUpdate?.call();
+    }
+  }
+
+  /// Internal method to apply image_bubble_id grouping for forward-loaded events
+  void _applyImageBubbleGroupingForward(int oldLength) {
+    if (events.length <= oldLength) return;
+
+    // For forward requests, new events are inserted at the beginning
+    final newEventCount = events.length - oldLength;
+    final newEvents = events.sublist(0, newEventCount);
+    final Map<String, List<Event>> grouped = {};
+
+    for (final event in newEvents) {
+      final bubbleId = event.imageBubbleId();
+      if (bubbleId != null) {
+        grouped.putIfAbsent(bubbleId, () => []).add(event);
+      }
+    }
+
+    // Sort events in each group by timestamp
+    for (final key in grouped.keys) {
+      grouped[key]!.sort((a, b) => a.originServerTs.compareTo(b.originServerTs));
+    }
+
+    // Create grouped events
+    final List<Event> processedEvents = [];
+    final Set<String> processedBubbleIds = {};
+
+    for (final event in newEvents) {
+      final bubbleId = event.imageBubbleId();
+
+      if (bubbleId == null) {
+        // No bubble ID, add event as-is
+        processedEvents.add(event);
+      } else if (!processedBubbleIds.contains(bubbleId)) {
+        // First occurrence of this bubble ID
+        processedBubbleIds.add(bubbleId);
+        final eventsList = grouped[bubbleId]!;
+
+        if (eventsList.length > 1) {
+          // Multiple events in group - create grouped event
+          final firstEvent = eventsList.first;
+          final otherEvents = eventsList.sublist(1);
+
+          final modifiedEvent = Event.fromJson(firstEvent.toJson(), room);
+          modifiedEvent.unsigned ??= {};
+          modifiedEvent.unsigned!['image_bubble_events'] =
+              otherEvents.map((e) => e.toJson()).toList();
+
+          processedEvents.add(modifiedEvent);
+        } else {
+          // Single event in group
+          processedEvents.add(eventsList.first);
+        }
+      }
+      // Skip subsequent events with same bubble ID (already processed)
+    }
+
+    // Replace the newly loaded events with grouped versions
+    events.replaceRange(0, newEventCount, processedEvents);
   }
 
   Future<void> _requestEvents({
@@ -272,6 +524,31 @@ class Timeline {
       onUpdate!();
     }
     return resp.chunk.length;
+  }
+
+  /// Request events from server with image_bubble_id grouping applied.
+  /// Returns the actual count of received timeline events (before grouping).
+  Future<int> getRoomEventsWithImageBubbleGrouping({
+    int historyCount = Room.defaultHistoryCount,
+    direction = Direction.b,
+    StateFilter? filter,
+  }) async {
+    final startLength = events.length;
+
+    final count = await getRoomEvents(
+      historyCount: historyCount,
+      direction: direction,
+      filter: filter,
+    );
+
+    // Apply grouping to newly loaded events
+    if (direction == Direction.b) {
+      _applyImageBubbleGrouping(startLength);
+    } else {
+      _applyImageBubbleGroupingForward(startLength);
+    }
+
+    return count;
   }
 
   Timeline(
@@ -552,6 +829,69 @@ class Timeline {
     } catch (e, s) {
       Logs().w('Handle event update failed', e, s);
     }
+  }
+
+  /// Finds all events in the timeline that have an image_bubble_id
+  List<Event> getEventsWithImageBubbleId() {
+    return events.where((event) => event.imageBubbleId() != null).toList();
+  }
+
+  /// Groups events by their image_bubble_id and returns a map where:
+  /// - Key: image_bubble_id
+  /// - Value: List of events with that image_bubble_id, sorted by originServerTs
+  Map<String, List<Event>> groupEventsByImageBubbleId() {
+    final Map<String, List<Event>> grouped = {};
+
+    for (final event in events) {
+      final bubbleId = event.imageBubbleId();
+      if (bubbleId != null) {
+        grouped.putIfAbsent(bubbleId, () => []).add(event);
+      }
+    }
+
+    // Sort events in each group by timestamp
+    for (final key in grouped.keys) {
+      grouped[key]!.sort((a, b) =>
+        a.originServerTs.compareTo(b.originServerTs)
+      );
+    }
+
+    return grouped;
+  }
+
+  /// Maps events with the same image_bubble_id into grouped events where
+  /// the first event contains the others in its unsigned list.
+  /// Returns a list where each entry is the first event of a group,
+  /// with subsequent events stored in unsigned['image_bubble_events']
+  List<Event> getGroupedImageBubbleEvents() {
+    final grouped = groupEventsByImageBubbleId();
+    final List<Event> result = [];
+
+    for (final entry in grouped.entries) {
+      final eventsList = entry.value;
+      if (eventsList.isEmpty) continue;
+
+      // First event is the primary event
+      final firstEvent = eventsList.first;
+
+      // If there's more than one event in the group, add the rest to unsigned
+      if (eventsList.length > 1) {
+        final otherEvents = eventsList.sublist(1);
+
+        // Create a modified copy of the first event with grouped events in unsigned
+        final modifiedEvent = Event.fromJson(firstEvent.toJson(), room);
+        modifiedEvent.unsigned ??= {};
+        modifiedEvent.unsigned!['image_bubble_events'] =
+          otherEvents.map((e) => e.toJson()).toList();
+
+        result.add(modifiedEvent);
+      } else {
+        // Single event in group, add as-is
+        result.add(firstEvent);
+      }
+    }
+
+    return result;
   }
 
   /// Searches [searchTerm] in this timeline. It first searches in the

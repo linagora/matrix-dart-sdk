@@ -1048,6 +1048,20 @@ class Event extends MatrixEvent {
     return FileSendingStatus.values.singleWhereOrNull(
         (fileSendingStatus) => fileSendingStatus.name == status);
   }
+
+  /// Gets the image_bubble_id from the event content or unsigned.extra_content
+  String? imageBubbleId() {
+    // First try to get from main content (for actual sent events)
+    final groupId = content.tryGet<String>('image_bubble_id');
+    if (groupId != null) {
+      return groupId;
+    }
+
+    // Fallback to unsigned.extra_content (for fake/pending events)
+    return unsigned
+        ?.tryGetMap<String, dynamic>('extra_content')
+        ?.tryGet<String>('image_bubble_id');
+  }
 }
 
 enum FileSendingStatus {
