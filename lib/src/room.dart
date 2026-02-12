@@ -99,6 +99,11 @@ class Room {
 
   final _sendingQueue = <Completer>[];
 
+  /// Cached filtered last event for efficient chat list display.
+  /// This is automatically updated when new events arrive or room state changes.
+  /// Use [filteredLastEvent] getter to access this.
+  Event? _cachedFilteredLastEvent;
+
   Map<String, dynamic> toJson() => {
         'id': id,
         'membership': membership.toString().split('.').last,
@@ -145,6 +150,12 @@ class Room {
       startStaleCallsChecker(id);
     }
     partial = false;
+
+    // Initialize the filtered last event cache after loading all states
+    // This ensures the cache is ready when the room list is displayed
+    if (client.roomPreviewLastEventFilter != null) {
+      unawaited(updateFilteredLastEventAsync());
+    }
   }
 
   /// Returns the [Event] for the given [typeKey] and optional [stateKey].
@@ -405,6 +416,187 @@ class Room {
     return lastEvent;
   }
 
+  /// Returns the cached filtered last event for display in chat lists.
+  /// This is much more efficient than [lastEvent] and supports filtering
+  /// (e.g., excluding redacted events, errors, or specific event types).
+  ///
+  /// The cache is updated by [updateFilteredLastEventAsync] which is called:
+  /// - After redaction events (to find previous non-deleted messages from DB)
+  /// - On initial room load
+  /// - When manually refreshing the filter
+  ///
+  /// The filter used is configured via [Client.roomPreviewLastEventFilter].
+  /// If no filter is set or cache is empty, this falls back to [lastEvent] behavior.
+  Event? get filteredLastEvent {
+    final filter = client.roomPreviewLastEventFilter;
+
+    // If cache is empty, apply filter to lastEvent as fallback
+    if (_cachedFilteredLastEvent == null && filter != null) {
+      final event = lastEvent;
+      if (event != null && filter(event)) {
+        return event;
+      }
+      // lastEvent doesn't pass filter (e.g., it's redacted), return null
+      return null;
+    }
+
+    return _cachedFilteredLastEvent ?? lastEvent;
+  }
+
+  /// Updates the cached filtered last event asynchronously, including database timeline events.
+  ///
+  /// This method searches both in-memory states AND the database for recent timeline events.
+  /// This is particularly important after message deletions, where the previous message
+  /// might only exist in the database and not in memory.
+  ///
+  /// **Important:** This method automatically triggers [onUpdate] if the last event changes,
+  /// ensuring the UI refreshes with the correct data. It's safe to call with `unawaited()`
+  /// as it will notify listeners when the database query completes.
+  ///
+  /// Call this after redaction events to ensure the last event is correctly updated.
+  Future<void> updateFilteredLastEventAsync() async {
+    final filter = client.roomPreviewLastEventFilter;
+
+    print(
+      '[updateFilteredLastEventAsync] Room ${getLocalizedDisplayname()}: '
+      'Starting update. Filter set: ${filter != null}',
+    );
+
+    // If no filter is configured, use the regular lastEvent
+    if (filter == null) {
+      _cachedFilteredLastEvent = lastEvent;
+      print(
+        '[updateFilteredLastEventAsync] Room ${getLocalizedDisplayname()}: '
+        'No filter configured! Using lastEvent: ${lastEvent?.eventId} (redacted: ${lastEvent?.redacted}). '
+        'Call client.validateLastEventFilter() to see how to fix this.',
+      );
+      return;
+    }
+
+    // Get all candidate events from room states (in-memory)
+    final candidateEvents = <Event>[];
+
+    // 1. Check message events from roomPreviewLastEvents (Message, Encrypted, Sticker)
+    for (final eventType in client.roomPreviewLastEvents) {
+      final event = getState(eventType);
+      if (event != null) {
+        candidateEvents.add(event);
+      }
+    }
+
+    // 2. Also check ALL other state events (membership, name changes, topic, etc.)
+    states.forEach((final String type, final stateMap) {
+      // Skip if we already added this event type from roomPreviewLastEvents
+      if (client.roomPreviewLastEvents.contains(type)) return;
+
+      final event = stateMap[''];
+      if (event != null) {
+        candidateEvents.add(event);
+      }
+
+      stateMap.forEach((stateKey, event) {
+        if (stateKey != '') {
+          candidateEvents.add(event);
+        }
+      });
+    });
+
+    // 3. Also query the database for recent timeline events
+    // This is crucial for finding previous messages after the last message is deleted
+    final database = client.database;
+    if (database != null) {
+      try {
+        print(
+          '[updateFilteredLastEventAsync] Room ${getLocalizedDisplayname()}: '
+          'Querying database for timeline events...',
+        );
+        // Get the most recent 20 timeline events from the database
+        // This should be enough to find a valid last event after redactions
+        final timelineEvents = await database.getEventList(
+          this,
+          start: 0,
+          limit: 20,
+          onlySending: false,
+        );
+        print(
+          '[updateFilteredLastEventAsync] Room ${getLocalizedDisplayname()}: '
+          'Found ${timelineEvents.length} timeline events in database',
+        );
+        candidateEvents.addAll(timelineEvents);
+      } catch (e, s) {
+        Logs().w(
+          '[updateFilteredLastEventAsync] Failed to query database for timeline events',
+          e,
+          s,
+        );
+      }
+    } else {
+      print(
+        '[updateFilteredLastEventAsync] Room ${getLocalizedDisplayname()}: '
+        'No database configured, skipping timeline query',
+      );
+    }
+
+    // Find the most recent event that passes the filter
+    print(
+      '[updateFilteredLastEventAsync] Room ${getLocalizedDisplayname()}: '
+      'Evaluating ${candidateEvents.length} total candidate events',
+    );
+
+    Event? mostRecentFiltered;
+    var passedCount = 0;
+    var failedCount = 0;
+
+    for (final event in candidateEvents) {
+      final passes = filter(event);
+      if (passes) {
+        passedCount++;
+        if (mostRecentFiltered == null ||
+            event.originServerTs.millisecondsSinceEpoch >
+                mostRecentFiltered.originServerTs.millisecondsSinceEpoch) {
+          print(
+            '[updateFilteredLastEventAsync] Room ${getLocalizedDisplayname()}: '
+            'New best candidate: ${event.eventId} (${event.type}) '
+            'redacted=${event.redacted} body="${event.body.substring(0, event.body.length > 30 ? 30 : event.body.length)}"',
+          );
+          mostRecentFiltered = event;
+        }
+      } else {
+        failedCount++;
+        print(
+          '[updateFilteredLastEventAsync] Room ${getLocalizedDisplayname()}: '
+          'Event filtered out: ${event.eventId} (${event.type}) '
+          'redacted=${event.redacted}',
+        );
+      }
+    }
+
+    print(
+      '[updateFilteredLastEventAsync] Room ${getLocalizedDisplayname()}: '
+      'Filter results: $passedCount passed, $failedCount failed. '
+      'Selected: ${mostRecentFiltered?.eventId ?? "none"}',
+    );
+
+    // Only update and trigger UI refresh if the last event actually changed
+    final previousLastEvent = _cachedFilteredLastEvent;
+    _cachedFilteredLastEvent = mostRecentFiltered;
+
+    // Trigger UI update if the last event changed (important for chat list updates)
+    if (previousLastEvent?.eventId != mostRecentFiltered?.eventId) {
+      print(
+        '[updateFilteredLastEventAsync] Room ${getLocalizedDisplayname()}: '
+        'Last event changed from ${previousLastEvent?.eventId} to ${mostRecentFiltered?.eventId}. '
+        'Triggering UI update.',
+      );
+      onUpdate.add(id);
+    } else {
+      print(
+        '[updateFilteredLastEventAsync] Room ${getLocalizedDisplayname()}: '
+        'Last event unchanged, no UI update needed',
+      );
+    }
+  }
+
   /// Returns a list of all current typing users.
   List<User> get typingUsers {
     final typingMxid = ephemerals['m.typing']?.content['user_ids'];
@@ -461,7 +653,18 @@ class Room {
   String get displayname => getLocalizedDisplayname();
 
   /// When the last message received.
-  DateTime get timeCreated => lastEvent?.originServerTs ?? DateTime.now();
+  ///
+  /// Uses [filteredLastEvent] when a filter is configured to ensure room sorting
+  /// matches what users see in the UI. Falls back to [lastEvent] when no filter is set.
+  /// This prevents rooms from staying at the top when their last message was redacted
+  /// or filtered out.
+  DateTime get timeCreated {
+    // Use filteredLastEvent if a filter is configured, otherwise use lastEvent
+    final event = client.roomPreviewLastEventFilter != null
+        ? filteredLastEvent
+        : lastEvent;
+    return event?.originServerTs ?? DateTime.now();
+  }
 
   /// Call the Matrix API to change the name of this room. Returns the event ID of the
   /// new m.room.name event.

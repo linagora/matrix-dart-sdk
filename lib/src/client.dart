@@ -76,6 +76,63 @@ class Client extends MatrixApi {
 
   Set<String> roomPreviewLastEvents;
 
+  /// Optional filter function for filtering room preview last events in chat lists.
+  /// This is used by [Room.filteredLastEvent] to provide a cached, filtered
+  /// last event that excludes redacted events, errors, or other unwanted events.
+  ///
+  /// Example:
+  /// ```dart
+  /// client.roomPreviewLastEventFilter = (event) {
+  ///   return !event.redacted &&
+  ///          event.type == EventTypes.Message &&
+  ///          event.status == EventStatus.synced;
+  /// };
+  /// ```
+  ///
+  /// You can use pre-built filters from [EventFilters]:
+  /// ```dart
+  /// client.roomPreviewLastEventFilter = EventFilters.defaultChatListFilter;
+  /// ```
+  EventFilterPredicate? roomPreviewLastEventFilter;
+
+  /// Validates that the filter for last events is properly configured.
+  ///
+  /// Call this method after setting up your client to ensure deleted messages
+  /// will be properly filtered from the chat list.
+  ///
+  /// Returns true if filter is configured, false otherwise.
+  /// Logs helpful warnings if not configured.
+  bool validateLastEventFilter() {
+    if (roomPreviewLastEventFilter == null) {
+      print(
+        '═══════════════════════════════════════════════════════════════\n'
+        '⚠️  WARNING: roomPreviewLastEventFilter is NOT configured!\n'
+        '═══════════════════════════════════════════════════════════════\n'
+        '\n'
+        'Without this filter:\n'
+        '  • Deleted messages will still appear in chat list\n'
+        '  • Redacted events will show as last message\n'
+        '  • Chat list sorting will be incorrect\n'
+        '\n'
+        'To fix, add this to your client initialization:\n'
+        '\n'
+        '  import \'package:matrix/src/utils/room_last_event_extension.dart\';\n'
+        '  \n'
+        '  client.roomPreviewLastEventFilter = EventFilters.defaultChatListFilter;\n'
+        '  // OR use a custom filter:\n'
+        '  client.roomPreviewLastEventFilter = EventFilters.excludeRedacted;\n'
+        '\n'
+        '═══════════════════════════════════════════════════════════════',
+      );
+      return false;
+    }
+
+    print(
+      '[Filter Validation] ✓ roomPreviewLastEventFilter is configured correctly',
+    );
+    return true;
+  }
+
   Set<String> supportedLoginTypes;
 
   int sendMessageTimeoutSeconds;
@@ -2497,15 +2554,51 @@ class Client extends MatrixApi {
         if (stateEvent.type == EventTypes.Redaction) {
           final String? redacts = eventUpdate.content.tryGet<String>('redacts');
           if (redacts != null) {
+            print(
+              '[Redaction] Room ${room.getLocalizedDisplayname()}: '
+              'Redaction event received for $redacts',
+            );
+            var foundAndMarked = false;
             room.states.forEach(
               (String key, Map<String, Event> states) => states.forEach(
                 (String key, Event state) {
                   if (state.eventId == redacts) {
+                    print(
+                      '[Redaction] Found event in state and marking as redacted: '
+                      '${state.eventId} (${state.type})',
+                    );
                     state.setRedactionEvent(stateEvent);
+                    foundAndMarked = true;
                   }
                 },
               ),
             );
+            if (!foundAndMarked) {
+              print(
+                '[Redaction] Room ${room.getLocalizedDisplayname()}: '
+                'Event $redacts not found in room states (might be in DB only)',
+              );
+            }
+            // Update the filtered last event cache after marking event as redacted.
+            // This ensures the room's last event reflects the most recent non-redacted message,
+            // which keeps the chat list sorted correctly when messages are deleted.
+            // Use the async version to also check database for previous messages.
+
+            // Check if user has configured the filter (important!)
+            if (roomPreviewLastEventFilter == null) {
+              print(
+                '[Redaction] WARNING: roomPreviewLastEventFilter is NOT set! '
+                'Redacted messages will still appear in chat list. '
+                'Set client.roomPreviewLastEventFilter = EventFilters.defaultChatListFilter '
+                'to fix this issue.',
+              );
+            } else {
+              print(
+                '[Redaction] Room ${room.getLocalizedDisplayname()}: '
+                'Triggering async update of filtered last event (filter is set ✓)',
+              );
+            }
+            unawaited(runInRoot(room.updateFilteredLastEventAsync));
           }
         } else {
           // We want to set state the in-memory cache for the room with the new event.
